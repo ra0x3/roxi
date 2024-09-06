@@ -1,0 +1,23 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [aarch64-unknown-linux-gnu, x86_64-unknown-linux-gnu]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.platform }}
+        profile: minimal
+
+    - name: Run tests
+      run: cargo test --target ${{ matrix.platform }}

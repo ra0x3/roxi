@@ -1,0 +1,49 @@
+[workspace]
+# Use the new resolver to prevent dev-deps and build-deps from enabling debugging or test features in production.
+resolver = "2"
+members = [
+   "packages/roxi-cli",
+   "packages/roxi-server",
+   "packages/roxi-crypto",
+   "packages/roxi-proto",
+   "packages/roxi",
+   "packages/roxi-tests",
+   "packages/roxi-client",
+]
+
+default-members = [
+   "packages/roxi-cli",
+   "packages/roxi-server",
+   "packages/roxi-crypto",
+   "packages/roxi-proto",
+   "packages/roxi",
+   "packages/roxi-tests",
+   "packages/roxi-client",
+]
+
+[workspace.package]
+authors = ["Rashad Alston <hi@rashad.wiki>"]
+edition = "2021"
+description = "Roxi VPN Project"
+homepage = "https://roxi.net"
+license = "Apache-2.0"
+repository = "https://github.com/ra0x3/roxi"
+rust-version = "1.78.0"
+version = "0.1.0"
+
+[workspace.dependencies]
+anyhow = "1"
+async-std = { version = "1" }
+async-trait = { version = "0.1" }
+bincode = "1.3"
+clap = "4.5"
+futures = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "multipart", "stream"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0", default-features = false }
+strum = { version = "0.26", features = ["derive"] }
+thiserror = "1.0"
+tokio = "1"
+tokio-util = "0.7"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["ansi", "json", "env-filter"] }
