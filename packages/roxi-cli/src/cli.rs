@@ -1,5 +1,5 @@
 #[allow(unused)]
-pub(crate) use crate::commands::{hello::Command as HelloCommand};
+pub(crate) use crate::commands::hello::Command as HelloCommand;
 use clap::{Parser, Subcommand};
 use forc_tracing::{init_tracing_subscriber, TracingSubscriberOptions};
 

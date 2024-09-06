@@ -1,0 +1,63 @@
+# trailing comma in arrays
+always_trailing_comma = false
+
+# trailing comma when multi-line
+multiline_trailing_comma = true
+
+# space before the = sign
+space_around_eq = true
+
+# remove all the spacing inside the array
+compact_arrays = false
+
+# remove all the spacing inside the object
+compact_inline_tables = false
+
+# is it ok to have blank lines inside of a table
+# this option needs to be true for the --grouped flag
+key_value_newlines = true
+
+
+# Define the maximum width of each line before it gets wrapped.
+max_width = 80
+
+# Determine the indentation style, can be "tab" or "space".
+indent_style = "space"
+
+# Set the number of spaces used for indentation. This is ignored if indent_style is "tab".
+indent_size = 2
+
+# Whether to align the values in tables to improve readability.
+align_values = true
+
+# Whether to ensure there is a trailing newline at the end of the file.
+trailing_newline = true
+
+# Control whether arrays of tables should be compacted if they only contain simple values.
+compact_arrays_of_tables = false
+
+# Specifies if inline tables should be expanded into full tables if they exceed a certain length.
+expand_inline_tables = true
+
+# Order the keys within each table alphabetically.
+order_keys = true
+
+# Control whether or not comments should be preserved when formatting.
+preserve_comments = true
+
+# Newline style to use in the output: can be "unix" or "windows".
+newline_style = "unix"
+
+# All unspecified tables will come after these.
+table_order = []
+
+# windows style line endings
+crlf = false
+
+allowed_blank_lines = 1
+
+# Specify which sections or key patterns to exclude from formatting.
+exclude = [
+    "metadata.*",
+    "dependencies"
+]

@@ -1,0 +1,11 @@
+# Sets the maximum width of each line.
+max_width = 90
+
+# Use spaces for indentation, not tabs.
+hard_tabs = false
+
+# Reorder imports according to the module layout.
+reorder_imports = true
+reorder_modules = true
+
+edition = "2021"

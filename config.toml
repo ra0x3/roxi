@@ -1,0 +1,59 @@
+# This file is the configuration file for Cargo, Rust's package manager and build tool.
+
+# Defines custom build targets
+[target.x86_64-unknown-linux-gnu]
+linker = "gcc"
+
+[target.aarch64-apple-darwin]
+linker = "clang"
+
+# Custom directories for builds and output
+[build]
+# Change the default build directory
+target-dir = "build_output"
+
+# Cargo's behavior when downloading crates
+[net]
+git-fetch-with-cli = true  # Use the `git` command-line tool for fetching git dependencies.
+
+# Registry configuration
+[registries]
+crates-io = { index = "https://github.com/rust-lang/crates.io-index" }
+
+# Alternative registry example
+# my-registry = { index = "https://my-inhouse-git.example.com/index" }
+
+# Source replacement for using a local path for crates
+# [source.crates-io]
+# replace-with = "vendored-sources"
+
+# [source.vendored-sources]
+# directory = "vendor"
+
+# HTTP configuration
+[http]
+# Set low timeout for HTTP requests to avoid hanging
+timeout = 10
+check-revoke = true  # Check for revoked SSL certs
+
+# Aliases for common commands
+[alias]
+# Add custom aliases to run common commands
+b = "build"
+r = "run"
+t = "test"
+c = "check"
+doc = "doc --open"
+
+# Cargo profile settings, customizing release builds
+[profile.release]
+opt-level = 3
+debug = true
+rpath = false
+lto = "fat"
+codegen-units = 1
+panic = "unwind"
+
+# Benchmarks and testing
+[profile.bench]
+opt-level = 3
