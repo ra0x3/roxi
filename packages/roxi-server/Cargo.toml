@@ -1,8 +1,27 @@
 [package]
 name = "roxi-server"
-version = "0.1.0"
-edition = "2021"
-
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
+description = "Roxi Server"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-std = { workspace = true }
+async-semaphore = { version = "1.2" }
+thiserror = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[[bin]]
+name = "server"
+path = "src/bin/main.rs"
+
+[lib]
+name = "server"
+path = "src/lib.rs"
