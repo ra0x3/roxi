@@ -19,5 +19,5 @@ tun:
 session:
   expiry: 3600
 
-secret:
-    shared_key: "roxi-XXX"
+auth:
+  shared_key: "roxi-XXX"

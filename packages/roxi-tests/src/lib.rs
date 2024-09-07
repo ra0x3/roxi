@@ -29,8 +29,8 @@ tun:
 session:
   expiry: 3600
 
-secret:
-    shared_key: "roxi-XXX"
+auth:
+  shared_key: "roxi-XXX"
 "#;
         let config = Config::try_from(content).unwrap();
         let server = Server::new(config.clone()).await.unwrap();

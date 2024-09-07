@@ -1,5 +1,6 @@
-use crate::{config::Config, error::ServerError, ClientId, ServerResult};
+use crate::{config::Config, error::ServerError, ServerResult};
 use async_std::sync::Mutex;
+use roxi_types::ClientId;
 use std::{collections::HashMap, net::Ipv4Addr};
 
 pub struct IpPoolManager {

@@ -8,7 +8,7 @@ members = [
    "packages/roxi-proto",
    "packages/roxi",
    "packages/roxi-tests",
-   "packages/roxi-client",
+   "packages/roxi-client", "packages/roxi-types",
 ]
 
 default-members = [
