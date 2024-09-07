@@ -3,6 +3,8 @@ pub(crate) mod handler;
 pub(crate) mod ip;
 pub(crate) mod protocol;
 pub(crate) mod server;
+pub(crate) mod session;
+pub(crate) mod tun;
 
 pub type ServerResult<T> = core::result::Result<T, error::ServerError>;
 

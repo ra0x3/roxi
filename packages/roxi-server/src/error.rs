@@ -16,6 +16,15 @@ pub enum ServerError {
 
     #[error("Unspecified ring error")]
     Unspecified,
+
+    #[error("Invalid shared key")]
+    InvalidSharedKey,
+
+    #[error("Tun error: {0}")]
+    Tun(#[from] tun::Error),
+
+    #[error("Tokio task join error: {0}")]
+    TokioJoin(#[from] tokio::task::JoinError),
 }
 
 impl From<ring::error::Unspecified> for ServerError {

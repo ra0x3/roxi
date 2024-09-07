@@ -12,10 +12,12 @@ description = "Roxi Server"
 
 [dependencies]
 async-std = { workspace = true }
+boringtun = { version = "0.5" }
 ring = { version = "0.17" }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tun = { version = "0.6" }
 tracing = { workspace = true }
 
 [[bin]]
