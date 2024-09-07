@@ -12,16 +12,16 @@ description = "Roxi Server"
 
 [dependencies]
 async-std = { workspace = true }
-async-semaphore = { version = "1.2" }
-thiserror = { workspace = true }
+ring = { version = "0.17" }
 serde = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
 [[bin]]
-name = "server"
+name = "roxi_server"
 path = "src/bin/main.rs"
 
 [lib]
-name = "server"
+name = "roxi_server"
 path = "src/lib.rs"

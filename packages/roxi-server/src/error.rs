@@ -13,4 +13,13 @@ pub enum ServerError {
 
     #[error("No IP addresses available")]
     NoIpAddrAvailable,
+
+    #[error("Unspecified ring error")]
+    Unspecified,
+}
+
+impl From<ring::error::Unspecified> for ServerError {
+    fn from(_: ring::error::Unspecified) -> Self {
+        ServerError::Unspecified
+    }
 }

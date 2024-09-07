@@ -1,8 +1,16 @@
 [package]
 name = "roxi-tests"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-std = { workspace = true }
+roxi-server = { path = "../roxi-server" }
+roxi = { path = "../roxi" }
+roxi-crypto = { path = "../roxi-crypto" }
+roxi-proto = { path = "../roxi-proto" }
+roxi-cli = { path = "../roxi-cli" }
+roxi-client = { path = "../roxi-client" }
+tokio = { workspace = true }
