@@ -1,17 +1,17 @@
-use crate::{ip::IpPoolManager, ServerResult};
+use crate::{config::Config, ip::IpPoolManager, ClientId, ServerResult};
 use async_std::sync::Arc;
-use std::net::IpAddr;
+use std::net::Ipv4Addr;
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Semaphore,
 };
 
-pub async fn authenticate_client(_socket: &TcpStream) -> ServerResult<String> {
+pub async fn authenticate_client(_socket: &TcpStream) -> ServerResult<ClientId> {
     // TODO: Allocate client IDs dynamically
-    Ok("client123".to_string())
+    Ok(ClientId::from("client123"))
 }
 
-pub async fn tunnel_traffic(_socket: &TcpStream, _ip: IpAddr) -> ServerResult<()> {
+pub async fn tunnel_traffic(_socket: &TcpStream, _ip: Ipv4Addr) -> ServerResult<()> {
     Ok(())
 }
 
@@ -23,9 +23,9 @@ pub struct Server {
 
 impl Server {
     // TODO: Global server config should be used to bootstrap server
-    pub async fn new(addr: &str) -> ServerResult<Self> {
-        let listener = TcpListener::bind(addr).await?;
-        let ip_pool = Arc::new(IpPoolManager::new()?);
+    pub async fn new(config: Config) -> ServerResult<Self> {
+        let listener = TcpListener::bind(config.hostname()).await?;
+        let ip_pool = Arc::new(IpPoolManager::new(config)?);
 
         // TODO: client limit should come from global server config
         let client_limit = Arc::new(Semaphore::new(10));

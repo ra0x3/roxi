@@ -30,7 +30,7 @@ impl TunInterface {
             .netmask(Ipv4Addr::new(255, 255, 255, 0))
             .name("utun6");
 
-        let  device = PlatformDevice::new(&config)?;
+        let device = PlatformDevice::new(&config)?;
         tracing::info!("TUN interface created: {:?}", device.name());
         Ok(Self {
             device: Arc::new(Mutex::new(device)),

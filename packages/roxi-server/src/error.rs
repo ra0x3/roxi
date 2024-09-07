@@ -25,6 +25,9 @@ pub enum ServerError {
 
     #[error("Tokio task join error: {0}")]
     TokioJoin(#[from] tokio::task::JoinError),
+
+    #[error("Serde yaml error: {0}")]
+    Yaml(#[from] serde_yaml::Error),
 }
 
 impl From<ring::error::Unspecified> for ServerError {
