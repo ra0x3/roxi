@@ -1,49 +1,38 @@
-use crate::{config::Config, error::ServerError, ip::IpPoolManager, ServerResult};
+use crate::{config::Config, error::ServerError, session::SessionManager, ServerResult};
 use async_std::sync::Arc;
-use roxi_lib::types::ClientId;
+use roxi_lib::types::{ClientId, SharedKey};
 use roxi_proto::{Message, MessageKind};
-use std::net::Ipv4Addr;
+use std::collections::HashMap;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
-    sync::Semaphore,
+    sync::{Mutex, Semaphore},
 };
-
-pub async fn authenticate_client(_stream: &TcpStream) -> ServerResult<ClientId> {
-    // TODO: Allocate client IDs dynamically
-    Ok(ClientId::from("client123"))
-}
-
-pub async fn tunnel_traffic(_stream: &TcpStream, _ip: Ipv4Addr) -> ServerResult<()> {
-    Ok(())
-}
 
 pub struct Server {
     listener: TcpListener,
-    ip_pool: Arc<IpPoolManager>,
     client_limit: Arc<Semaphore>,
     config: Config,
+    #[allow(unused)]
+    clients: Arc<Mutex<HashMap<ClientId, TcpStream>>>,
+    sessions: SessionManager,
 }
 
 impl Server {
     pub async fn new(config: Config) -> ServerResult<Self> {
         let listener = TcpListener::bind(config.hostname()).await?;
-        let ip_pool = Arc::new(IpPoolManager::new(config.clone())?);
-        let client_limit = Arc::new(Semaphore::new(config.client_limit()));
+        let client_limit = Arc::new(Semaphore::new(config.max_clients()));
 
         Ok(Self {
             listener,
-            ip_pool,
             client_limit,
-            config,
+            config: config.clone(),
+            clients: Arc::new(Mutex::new(HashMap::new())),
+            sessions: SessionManager::new(config),
         })
     }
 
-    pub async fn handle_client(
-        mut stream: TcpStream,
-        ip_pool: Arc<IpPoolManager>,
-        hostname: String,
-    ) -> ServerResult<()> {
+    pub async fn handle_client(&self, mut stream: TcpStream) -> ServerResult<()> {
         tracing::info!("Handling incoming tcp stream");
 
         let mut buff = vec![0u8; 1024];
@@ -61,38 +50,34 @@ impl Server {
 
         match msg.kind() {
             MessageKind::Ping => {
-                let msg = Message::new(MessageKind::Pong, hostname, None);
+                let msg = Message::new(MessageKind::Pong, self.config.hostname(), None);
                 let data = msg.serialize()?;
                 stream.write_all(&data).await?;
+            }
+            MessageKind::AuthenticationRequest => {
+                let key = SharedKey::try_from(msg.data())?;
+                let client_id = ClientId::try_from(&stream)?;
+                if let Err(_e) = self.sessions.authenticate(&client_id, &key).await {
+                    return Err(ServerError::Unauthenticated);
+                }
             }
             _ => {
                 return Err(ServerError::InvalidMessage);
             }
         }
 
-        let client_id = authenticate_client(&stream).await?;
-        let client_ip = ip_pool.assign_ip(&client_id).await?;
-        tracing::info!("Assigned IP {client_ip} to client {client_id}");
-
-        tunnel_traffic(&stream, client_ip).await?;
-
-        ip_pool.release_ip(&client_id).await?;
-        tracing::info!("IP for client {client_id} released");
-
         Ok(())
     }
 
-    pub async fn run(&self) -> ServerResult<()> {
-        let hostname = self.config.hostname();
-        tracing::info!("Server listening at {hostname}");
+    pub async fn run(self: Arc<Self>) -> ServerResult<()> {
+        tracing::info!("Server listening at {}", self.config.hostname());
         loop {
-            let hostname = hostname.clone();
-            let (mut stream, _) = self.listener.accept().await?;
+            let (stream, _) = self.listener.accept().await?;
             let permit = self.client_limit.clone().acquire_owned().await?;
-            let ip_pool = Arc::clone(&self.ip_pool);
+            let server = Arc::clone(&self);
 
             tokio::spawn(async move {
-                if let Err(e) = Server::handle_client(stream, ip_pool, hostname).await {
+                if let Err(e) = server.handle_client(stream).await {
                     tracing::error!("Error handling client: {e}");
                 }
 

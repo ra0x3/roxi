@@ -9,23 +9,12 @@ use std::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Client {
-    limit: usize,
+    max_clients: usize,
 }
 
 impl Client {
-    pub fn limit(&self) -> usize {
-        self.limit
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct IP {
-    pool: Vec<Ipv4Addr>,
-}
-
-impl IP {
-    pub fn pool(&self) -> Vec<Ipv4Addr> {
-        self.pool.clone()
+    pub fn max_clients(&self) -> usize {
+        self.max_clients
     }
 }
 
@@ -47,27 +36,43 @@ pub struct Auth {
     shared_key: SharedKey,
 }
 
+impl Auth {
+    pub fn shared_key(&self) -> SharedKey {
+        self.shared_key.clone()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Server {
+    interface: Ipv4Addr,
+    port: u16,
+}
+
+impl Server {
+    pub fn hostname(&self) -> String {
+        format!("{}:{}", self.interface, self.port)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
-    host: String,
-    port: String,
+    server: Server,
     client: Client,
-    ip: IP,
     tun: Tun,
     auth: Auth,
 }
 
 impl Config {
     pub fn hostname(&self) -> String {
-        format!("{}:{}", self.host, self.port)
+        self.server.hostname()
     }
 
-    pub fn ip_pool(&self) -> Vec<Ipv4Addr> {
-        self.ip.pool()
+    pub fn max_clients(&self) -> usize {
+        self.client.max_clients()
     }
 
-    pub fn client_limit(&self) -> usize {
-        self.client.limit()
+    pub fn shared_key(&self) -> SharedKey {
+        self.auth.shared_key()
     }
 }
 

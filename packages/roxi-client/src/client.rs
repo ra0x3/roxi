@@ -13,7 +13,7 @@ pub struct Client {
 
 impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
-        let hostname = config.hostname();
+        let hostname = config.roxi_server_hostname();
         let stream = TcpStream::connect(&hostname).await?;
         Ok(Self {
             config,
@@ -24,7 +24,7 @@ impl Client {
 
     pub async fn connect(&mut self) -> ClientResult<()> {
         let _ = self.ping().await?;
-        //        let _ = self.authenticate().await?;
+        let _ = self.authenticate().await?;
 
         Ok(())
     }

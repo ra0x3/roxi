@@ -3,6 +3,7 @@ use roxi_lib::types::SharedKey;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
+    net::Ipv4Addr,
     path::{Path, PathBuf},
 };
 
@@ -18,15 +19,33 @@ impl Auth {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Gateway {
+    interface: Ipv4Addr,
+    port: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RoxiServer {
+    interface: Ipv4Addr,
+    port: u32,
+}
+
+impl RoxiServer {
+    pub fn hostname(&self) -> String {
+        format!("{}:{}", self.interface, self.port)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
-    host: String,
-    port: String,
+    roxi_server: RoxiServer,
     auth: Auth,
+    gateway: Gateway,
 }
 
 impl Config {
-    pub fn hostname(&self) -> String {
-        format!("{}:{}", self.host, self.port)
+    pub fn roxi_server_hostname(&self) -> String {
+        self.roxi_server.hostname()
     }
 
     pub fn shared_key(&self) -> SharedKey {

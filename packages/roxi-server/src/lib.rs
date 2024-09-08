@@ -1,6 +1,7 @@
 pub(crate) mod auth;
 pub(crate) mod config;
 pub(crate) mod error;
+pub(crate) mod gateway;
 pub(crate) mod handler;
 pub(crate) mod ip;
 pub(crate) mod protocol;

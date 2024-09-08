@@ -1,3 +1,4 @@
+/* TODO: Remove this since we're using P2P for tunneling */
 use crate::{config::Config, error::ServerError, ServerResult};
 use async_std::sync::Mutex;
 use roxi_lib::types::ClientId;
@@ -9,9 +10,9 @@ pub struct IpPoolManager {
 }
 
 impl IpPoolManager {
-    pub fn new(config: Config) -> ServerResult<Self> {
+    pub fn new(_config: Config) -> ServerResult<Self> {
         Ok(IpPoolManager {
-            available_ips: Mutex::new(config.ip_pool()),
+            available_ips: Mutex::new(vec![]),
             assigned_ips: Mutex::new(HashMap::new()),
         })
     }

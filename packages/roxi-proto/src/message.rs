@@ -74,6 +74,10 @@ impl Message {
         &self.kind
     }
 
+    pub fn data(&self) -> Vec<u8> {
+        self.data.clone().unwrap_or_else(Vec::new)
+    }
+
     pub fn serialize(self) -> ProtoResult<Vec<u8>> {
         let mut result = Vec::new();
         let data = self.data.unwrap_or_else(Vec::new);

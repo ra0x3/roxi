@@ -1,7 +1,7 @@
 use clap::Parser;
 use roxi_lib::util::{init_logging, shutdown_signal_handler};
 use roxi_server::{Config, Server};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 use tokio::{sync::broadcast, task::JoinSet};
 
 #[derive(Debug, Parser, Clone)]
@@ -21,7 +21,7 @@ pub async fn exec(args: Args) -> anyhow::Result<()> {
     let config = Config::try_from(&args.config)?;
 
     tracing::info!("Configuration: {config:?}");
-    let server = Server::new(config).await?;
+    let server = Arc::new(Server::new(config).await?);
 
     init_logging().await?;
 

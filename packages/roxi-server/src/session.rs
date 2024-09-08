@@ -1,4 +1,6 @@
-use crate::{error::ServerError, ServerResult};
+use crate::{
+    auth::SharedKeyAuthentication, config::Config, error::ServerError, ServerResult,
+};
 use async_std::sync::{Arc, Mutex, RwLock};
 use roxi_lib::types::{ClientId, SharedKey};
 use std::collections::HashMap;
@@ -6,32 +8,35 @@ use std::time::{Duration, SystemTime};
 
 pub struct SessionManager {
     sessions: Arc<RwLock<HashMap<ClientId, SystemTime>>>,
-    key: SharedKey,
+    config: Config,
+    auth: SharedKeyAuthentication,
 }
 
 impl SessionManager {
-    pub fn new(key: SharedKey) -> Self {
+    pub fn new(config: Config) -> Self {
+        let key = config.shared_key();
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
-            key,
+            config,
+            auth: SharedKeyAuthentication::new(key),
         }
     }
 
     pub async fn authenticate(
         &self,
         client_id: &ClientId,
-        key: &str,
+        key: &SharedKey,
     ) -> ServerResult<()> {
-        let key = SharedKey::from(key);
-        if key == self.key {
-            self.sessions
-                .write()
-                .await
-                .insert(client_id.clone(), SystemTime::now());
-            return Ok(());
+        if let Err(e) = self.auth.authenticate(&key) {
+            tracing::error!("Failed to authenticate client({client_id}): {e}");
+            return Err(ServerError::Unauthenticated);
         }
 
-        Err(ServerError::InvalidSharedKey)
+        self.sessions
+            .write()
+            .await
+            .insert(client_id.clone(), SystemTime::now());
+        Ok(())
     }
 
     pub async fn session_exists(&self, client_id: &ClientId) -> bool {
@@ -63,8 +68,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_can_interact_with_session_manager() {
-        let key = "abcdefg12345";
-        let client = "client1234";
+        let key = SharedKey("abcd123");
+        let client = ClientId::from("client123");
         let manager = SessionManager::new(key.to_string());
         let _ = manager.authenticate(client, key).await;
 

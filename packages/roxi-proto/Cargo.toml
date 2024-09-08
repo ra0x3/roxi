@@ -14,6 +14,7 @@ description = "Roxi Server"
 async-std = { workspace = true }
 bincode = { version = "1" }
 boringtun = { version = "0.5" }
+libp2p = { version = "0.52" }
 ring = { version = "0.17" }
 roxi-lib = { path = "../roxi-lib" }
 serde = { workspace = true }
@@ -21,8 +22,8 @@ strum = { version = "0.26", features = ["derive"] }
 strum_macros = { version = "0.26" }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-tun = { version = "0.6" }
 tracing = { workspace = true }
+tun = { version = "0.6" }
 
 [lib]
 name = "roxi_proto"

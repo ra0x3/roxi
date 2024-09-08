@@ -37,6 +37,12 @@ pub enum ServerError {
 
     #[error("Invalid message")]
     InvalidMessage,
+
+    #[error("Unauthenticated")]
+    Unauthenticated,
+
+    #[error("FromUt8 error: {0}")]
+    FromUtf8(#[from] std::string::FromUtf8Error),
 }
 
 impl From<ring::error::Unspecified> for ServerError {
