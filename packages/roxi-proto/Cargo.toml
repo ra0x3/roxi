@@ -1,8 +1,29 @@
 [package]
 name = "roxi-proto"
-version = "0.1.0"
-edition = "2021"
-
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
+description = "Roxi Server"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-std = { workspace = true }
+bincode = { version = "1" }
+boringtun = { version = "0.5" }
+ring = { version = "0.17" }
+roxi-types = { path = "../roxi-types" }
+serde = { workspace = true }
+strum = { version = "0.26", features = ["derive"] }
+strum_macros = { version = "0.26" }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tun = { version = "0.6" }
+tracing = { workspace = true }
+
+[lib]
+name = "roxi_proto"
+path = "src/lib.rs"

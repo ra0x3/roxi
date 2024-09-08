@@ -1,14 +1,6 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+pub(crate) mod error;
+pub(crate) mod message;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub type ProtoResult<T> = core::result::Result<T, error::ProtoError>;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use error::ProtoError;
