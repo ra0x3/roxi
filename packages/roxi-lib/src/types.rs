@@ -23,3 +23,9 @@ impl std::fmt::Display for SharedKey {
         write!(f, "roxi-XXX")
     }
 }
+
+impl From<&str> for SharedKey {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}

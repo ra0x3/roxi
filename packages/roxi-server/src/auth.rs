@@ -1,4 +1,4 @@
-use roxi_types::SharedKey;
+use roxi_lib::types::SharedKey;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub struct Authentication {

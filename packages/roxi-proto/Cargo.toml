@@ -15,7 +15,7 @@ async-std = { workspace = true }
 bincode = { version = "1" }
 boringtun = { version = "0.5" }
 ring = { version = "0.17" }
-roxi-types = { path = "../roxi-types" }
+roxi-lib = { path = "../roxi-lib" }
 serde = { workspace = true }
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = { version = "0.26" }

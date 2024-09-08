@@ -1,6 +1,6 @@
 use crate::{config::Config, ip::IpPoolManager, ServerResult};
 use async_std::sync::Arc;
-use roxi_types::ClientId;
+use roxi_lib::types::ClientId;
 use std::net::Ipv4Addr;
 use tokio::{
     net::{TcpListener, TcpStream},

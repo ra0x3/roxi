@@ -1,39 +1,44 @@
 use crate::{error::ServerError, ServerResult};
 use async_std::sync::{Arc, Mutex, RwLock};
+use roxi_lib::types::{ClientId, SharedKey};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 
 pub struct SessionManager {
-    sessions: Arc<RwLock<HashMap<String, SystemTime>>>,
-    key: String,
+    sessions: Arc<RwLock<HashMap<ClientId, SystemTime>>>,
+    key: SharedKey,
 }
 
 impl SessionManager {
-    pub fn new(key: String) -> Self {
+    pub fn new(key: SharedKey) -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             key,
         }
     }
 
-    // TODO: Swap all client_id: &str to ClientId
-    pub async fn authenticate(&self, client_id: &str, key: &str) -> ServerResult<()> {
+    pub async fn authenticate(
+        &self,
+        client_id: &ClientId,
+        key: &str,
+    ) -> ServerResult<()> {
+        let key = SharedKey::from(key);
         if key == self.key {
             self.sessions
                 .write()
                 .await
-                .insert(client_id.to_string(), SystemTime::now());
+                .insert(client_id.clone(), SystemTime::now());
             return Ok(());
         }
 
         Err(ServerError::InvalidSharedKey)
     }
 
-    pub async fn session_exists(&self, client_id: &str) -> bool {
+    pub async fn session_exists(&self, client_id: &ClientId) -> bool {
         self.sessions.read().await.contains_key(client_id)
     }
 
-    pub async fn remove_session(&self, client_id: &str) {
+    pub async fn remove_session(&self, client_id: &ClientId) {
         self.sessions.write().await.remove(client_id);
     }
 

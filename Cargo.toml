@@ -8,7 +8,8 @@ members = [
    "packages/roxi-proto",
    "packages/roxi",
    "packages/roxi-tests",
-   "packages/roxi-client", "packages/roxi-types",
+   "packages/roxi-client",
+   "packages/roxi-lib",
 ]
 
 default-members = [
@@ -19,6 +20,7 @@ default-members = [
    "packages/roxi",
    "packages/roxi-tests",
    "packages/roxi-client",
+   "packages/roxi-lib",
 ]
 
 [workspace.package]

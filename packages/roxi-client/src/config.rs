@@ -1,5 +1,5 @@
 use crate::{error::ClientError, ClientResult};
-use roxi_types::SharedKey;
+use roxi_lib::types::SharedKey;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,

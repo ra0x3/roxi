@@ -14,7 +14,7 @@ description = "Roxi Server"
 async-std = { workspace = true }
 boringtun = { version = "0.5" }
 ring = { version = "0.17" }
-roxi-types = { path = "../roxi-types" }
+roxi-lib = { path = "../roxi-lib" }
 serde = { workspace = true }
 serde_yaml = { version = "0.9" }
 thiserror = { workspace = true }

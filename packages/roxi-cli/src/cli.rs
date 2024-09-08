@@ -1,5 +1,4 @@
-#[allow(unused)]
-pub(crate) use crate::commands::hello::Command as HelloCommand;
+pub(crate) use crate::command::{connect, hello, serve};
 use clap::{Parser, Subcommand};
 use forc_tracing::{init_tracing_subscriber, TracingSubscriberOptions};
 
@@ -8,13 +7,17 @@ use forc_tracing::{init_tracing_subscriber, TracingSubscriberOptions};
 pub struct Opt {
     /// The command to run
     #[clap(subcommand)]
-    pub command: RoxiCLI,
+    pub command: RoxiCli,
 }
 
 #[derive(Subcommand, Debug)]
-pub enum RoxiCLI {
+pub enum RoxiCli {
     #[clap(name = "hello", about = "Test hello command")]
-    Hello(HelloCommand),
+    Hello(hello::Args),
+    #[clap(name = "serve", about = "Start Roxi server")]
+    Serve(serve::Args),
+    #[clap(name = "connect", about = "Connect to Roxi server")]
+    Connect(connect::Args),
 }
 
 pub async fn run_cli() -> Result<(), anyhow::Error> {
@@ -25,6 +28,8 @@ pub async fn run_cli() -> Result<(), anyhow::Error> {
     init_tracing_subscriber(tracing_options);
 
     match opt.command {
-        RoxiCLI::Hello(command) => crate::commands::hello::exec(command),
+        RoxiCli::Hello(command) => hello::exec(command),
+        RoxiCli::Serve(command) => serve::exec(command).await,
+        RoxiCli::Connect(command) => connect::exec(command).await,
     }
 }
