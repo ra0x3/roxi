@@ -7,4 +7,7 @@ pub enum ProtoError {
 
     #[error("Malformed message")]
     MalformedMessage,
+
+    #[error("Utf8 error: {0}")]
+    Utf8(#[from] std::string::FromUtf8Error),
 }

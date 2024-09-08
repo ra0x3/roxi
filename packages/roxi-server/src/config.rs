@@ -12,6 +12,12 @@ pub struct Client {
     limit: usize,
 }
 
+impl Client {
+    pub fn limit(&self) -> usize {
+        self.limit
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct IP {
     pool: Vec<Ipv4Addr>,
@@ -58,6 +64,10 @@ impl Config {
 
     pub fn ip_pool(&self) -> Vec<Ipv4Addr> {
         self.ip.pool()
+    }
+
+    pub fn client_limit(&self) -> usize {
+        self.client.limit()
     }
 }
 

@@ -2,31 +2,31 @@
 # Use the new resolver to prevent dev-deps and build-deps from enabling debugging or test features in production.
 resolver = "2"
 members = [
-   "packages/roxi-cli",
-   "packages/roxi-server",
-   "packages/roxi-crypto",
-   "packages/roxi-proto",
    "packages/roxi",
-   "packages/roxi-tests",
+   "packages/roxi-cli",
    "packages/roxi-client",
+   "packages/roxi-crypto",
    "packages/roxi-lib",
+   "packages/roxi-proto",
+   "packages/roxi-server",
+   "packages/roxi-tests",
 ]
 
 default-members = [
-   "packages/roxi-cli",
-   "packages/roxi-server",
-   "packages/roxi-crypto",
-   "packages/roxi-proto",
    "packages/roxi",
-   "packages/roxi-tests",
+   "packages/roxi-cli",
    "packages/roxi-client",
+   "packages/roxi-crypto",
    "packages/roxi-lib",
+   "packages/roxi-proto",
+   "packages/roxi-server",
+   "packages/roxi-tests",
 ]
 
 [workspace.package]
 authors = ["Rashad Alston <hi@rashad.wiki>"]
-edition = "2021"
 description = "Roxi VPN Project"
+edition = "2021"
 homepage = "https://roxi.net"
 license = "Apache-2.0"
 repository = "https://github.com/ra0x3/roxi"

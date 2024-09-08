@@ -1,16 +1,13 @@
 use sha2::{Digest, Sha256};
 use std::{env, str::FromStr};
-use tokio::{
-    signal::unix::{signal, Signal, SignalKind},
-    sync::broadcast,
-};
+use tokio::signal::unix::{signal, Signal, SignalKind};
 use tracing_subscriber::filter::EnvFilter;
 
 const RUST_LOG: &str = "RUST_LOG";
 const HUMAN_LOGGING: &str = "HUMAN_LOGGING";
 
 pub async fn init_logging() -> anyhow::Result<()> {
-    let level = env::var_os(RUST_LOG)
+    let _level = env::var_os(RUST_LOG)
         .map(|x| x.into_string().unwrap())
         .unwrap_or("info".to_string());
 

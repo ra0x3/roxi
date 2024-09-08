@@ -1,6 +1,5 @@
 pub(crate) use crate::command::{connect, hello, serve};
 use clap::{Parser, Subcommand};
-use forc_tracing::{init_tracing_subscriber, TracingSubscriberOptions};
 
 #[derive(Debug, Parser)]
 #[clap(name = "Roxi", about = "Roxi Orchestrator", version)]
@@ -22,10 +21,6 @@ pub enum RoxiCli {
 
 pub async fn run_cli() -> Result<(), anyhow::Error> {
     let opt = Opt::parse();
-    let tracing_options = TracingSubscriberOptions {
-        ..Default::default()
-    };
-    init_tracing_subscriber(tracing_options);
 
     match opt.command {
         RoxiCli::Hello(command) => hello::exec(command),

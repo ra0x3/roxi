@@ -14,6 +14,7 @@ description = "Roxi Client"
 async-std = { workspace = true }
 ring = { version = "0.17" }
 roxi-lib = { path = "../roxi-lib" }
+roxi-proto = { path = "../roxi-proto" }
 serde = { workspace = true }
 serde_yaml = { version = "0.9" }
 thiserror = { workspace = true }

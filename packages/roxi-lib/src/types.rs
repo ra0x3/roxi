@@ -29,3 +29,9 @@ impl From<&str> for SharedKey {
         Self(s.to_string())
     }
 }
+
+impl Into<Vec<u8>> for SharedKey {
+    fn into(self) -> Vec<u8> {
+        self.0.into_bytes()
+    }
+}

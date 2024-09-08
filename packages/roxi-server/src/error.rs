@@ -28,6 +28,15 @@ pub enum ServerError {
 
     #[error("Serde yaml error: {0}")]
     Yaml(#[from] serde_yaml::Error),
+
+    #[error("Connection closed")]
+    ConnectionClosed,
+
+    #[error("Proto error: {0}")]
+    Proto(#[from] roxi_proto::ProtoError),
+
+    #[error("Invalid message")]
+    InvalidMessage,
 }
 
 impl From<ring::error::Unspecified> for ServerError {

@@ -1,2 +1,4 @@
 pub mod cli;
-pub mod command;
+pub(crate) mod command;
+
+pub use cli::run_cli;

@@ -9,6 +9,7 @@ pub struct Args {
     pub verbose: bool,
 }
 
+#[allow(unused)]
 pub fn exec(args: Args) -> Result<()> {
     fn print_welcome_message() {
         let msg = r#"
@@ -22,5 +23,6 @@ pub fn exec(args: Args) -> Result<()> {
 
         println!("{msg}");
     }
+    print_welcome_message();
     Ok(())
 }

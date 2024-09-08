@@ -13,4 +13,7 @@ pub enum ClientError {
 
     #[error("Serde yaml error: {0}")]
     Yaml(#[from] serde_yaml::Error),
+
+    #[error("Protocol error: {0}")]
+    Proto(#[from] roxi_proto::ProtoError),
 }

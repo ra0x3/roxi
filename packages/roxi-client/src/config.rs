@@ -7,20 +7,30 @@ use std::{
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Secret {
+pub struct Auth {
     shared_key: SharedKey,
+}
+
+impl Auth {
+    pub fn shared_key(&self) -> SharedKey {
+        self.shared_key.clone()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     host: String,
     port: String,
-    shared_key: String,
+    auth: Auth,
 }
 
 impl Config {
     pub fn hostname(&self) -> String {
         format!("{}:{}", self.host, self.port)
+    }
+
+    pub fn shared_key(&self) -> SharedKey {
+        self.auth.shared_key()
     }
 }
 
