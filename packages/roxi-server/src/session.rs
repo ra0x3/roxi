@@ -1,7 +1,7 @@
 use crate::{
     auth::SharedKeyAuthentication, config::Config, error::ServerError, ServerResult,
 };
-use async_std::sync::{Arc, Mutex, RwLock};
+use async_std::sync::{Arc, RwLock};
 use roxi_lib::types::{ClientId, SharedKey};
 use std::collections::HashMap;
 use std::time::SystemTime;
@@ -14,10 +14,10 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new() -> Self {
+    pub fn new(ttl: u64) -> Self {
         Self {
             time: SystemTime::now(),
-            expiry: Duration::new(3600, 0),
+            expiry: Duration::new(ttl, 0),
         }
     }
 
@@ -26,6 +26,7 @@ impl Session {
         false
     }
 
+    #[allow(unused)]
     pub fn expired(&self) -> bool {
         self.time.elapsed().unwrap_or_default() > self.expiry
     }
@@ -52,30 +53,34 @@ impl SessionManager {
         client_id: &ClientId,
         key: &SharedKey,
     ) -> ServerResult<()> {
-        if let Err(e) = self.auth.authenticate(&key) {
+        if let Err(e) = self.auth.authenticate(key) {
             tracing::error!("Failed to authenticate client({client_id}): {e}");
             return Err(ServerError::Unauthenticated);
         }
 
-        self.sessions
-            .write()
-            .await
-            .insert(client_id.clone(), Session::new());
+        self.sessions.write().await.insert(
+            client_id.clone(),
+            Session::new(self.config.session_ttl() as u64),
+        );
         Ok(())
     }
 
+    #[allow(unused)]
     pub async fn session_exists(&self, client_id: &ClientId) -> bool {
         self.sessions.read().await.contains_key(client_id)
     }
 
+    #[allow(unused)]
     pub async fn remove_session(&self, client_id: &ClientId) {
         self.sessions.write().await.remove(client_id);
     }
 
+    #[allow(unused)]
     pub async fn len(&self) -> usize {
         self.sessions.read().await.len()
     }
 
+    #[allow(unused)]
     pub async fn drop_expired_sessions(&self) {
         self.sessions
             .write()
@@ -101,16 +106,35 @@ mod tests {
 
     use super::*;
 
+    const CONFIG: &str = r#"
+server:
+  ip: "192.168.1.34"
+  interface: "0.0.0.0"
+  port: 8080
+  max_clients: 10
+
+tun:
+  address: "10.0.0.1"
+  destination: "10.0.0.2"
+  netmask: "255.255.255.0"
+  name: "utun6"
+
+auth:
+  shared_key: "roxi-XXX"
+  session_ttl: 3600
+"#;
+
     #[tokio::test]
     async fn test_can_interact_with_session_manager() {
-        let key = SharedKey("abcd123");
+        let config = Config::try_from(CONFIG).unwrap();
+        let key = SharedKey::from("roxi-XXX");
         let client = ClientId::from("client123");
-        let manager = SessionManager::new(key.to_string());
-        let _ = manager.authenticate(client, key).await;
+        let manager = SessionManager::new(config);
+        let _ = manager.authenticate(&client, &key).await;
 
-        assert!(manager.session_exists(client).await);
+        assert!(manager.session_exists(&client).await);
 
-        manager.remove_session(client).await;
-        assert!(!manager.session_exists(client).await);
+        manager.remove_session(&client).await;
+        assert!(!manager.session_exists(&client).await);
     }
 }

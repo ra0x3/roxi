@@ -1,6 +1,5 @@
 use crate::{ServerError, ServerResult};
 use roxi_lib::types::SharedKey;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub struct SharedKeyAuthentication {
     shared_key: SharedKey,

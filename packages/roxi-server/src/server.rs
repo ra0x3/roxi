@@ -12,35 +12,32 @@ use tokio::{
     sync::{RwLock, Semaphore},
 };
 
-const STUN_BINDING_RESPONSE: u16 = 0x0101;
-const MAPPED_ADDRESS_ATTRIBUTE_TYPE: u16 = 0x0001;
 const STUN_BINDING_REQUEST: u16 = 0x0001;
-const STUN_MAGIC_COOKIE: u32 = 0x2112A442;
 
 pub struct Server {
-    listener: TcpListener,
-    udp_listener: UdpSocket,
+    tcp: TcpListener,
+    udp: UdpSocket,
     client_limit: Arc<Semaphore>,
     config: Config,
     client_streams: Arc<RwLock<HashMap<ClientId, TcpStream>>>,
     client_sessions: SessionManager,
-    client_stun_info: Arc<RwLock<HashMap<ClientId, StunInfo>>>,
+    client_stun: Arc<RwLock<HashMap<ClientId, StunInfo>>>,
 }
 
 impl Server {
     pub async fn new(config: Config) -> ServerResult<Self> {
-        let listener = TcpListener::bind(config.hostname()).await?;
-        let udp_listener = UdpSocket::bind(config.hostname()).await?;
+        let tcp = TcpListener::bind(config.hostname()).await?;
+        let udp = UdpSocket::bind(config.hostname()).await?;
         let client_limit = Arc::new(Semaphore::new(config.max_clients() as usize));
 
         Ok(Self {
-            listener,
-            udp_listener,
+            tcp,
+            udp,
             client_limit,
             config: config.clone(),
             client_streams: Arc::new(RwLock::new(HashMap::new())),
             client_sessions: SessionManager::new(config),
-            client_stun_info: Arc::new(RwLock::new(HashMap::new())),
+            client_stun: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 
@@ -102,8 +99,6 @@ impl Server {
             return Ok(());
         }
 
-        let tx_id = &buff[8..20];
-
         let ip = match addr.ip() {
             IpAddr::V4(ip) => ip,
             _ => {
@@ -117,31 +112,8 @@ impl Server {
         let info = StunInfo::new(StunAddressKind::Public, ip, port);
 
         tracing::info!("Adding stun info for {client_id:?}: {info:?}");
-        self.client_stun_info.write().await.insert(client_id, info);
+        self.client_stun.write().await.insert(client_id, info);
 
-        // We don't really need to return this since the client won't do anything
-        // with the response anyway, but it can't hurt to perform actions of an
-        // actual stun server.
-        let mut response = bytes::BytesMut::with_capacity(32);
-        response.extend_from_slice(&u16::to_be_bytes(STUN_BINDING_RESPONSE));
-        response.extend_from_slice(&u16::to_be_bytes(12)); // Length
-        response.extend_from_slice(&u32::to_be_bytes(STUN_MAGIC_COOKIE));
-        response.extend_from_slice(tx_id);
-
-        response.extend_from_slice(&u16::to_be_bytes(MAPPED_ADDRESS_ATTRIBUTE_TYPE));
-        response.extend_from_slice(&u16::to_be_bytes(8)); // Length
-        response.extend_from_slice(&[0, 1]); // IPv4 family
-        response.extend_from_slice(&u16::to_be_bytes(
-            addr.port() ^ (STUN_MAGIC_COOKIE >> 16) as u16,
-        )); // XOR-mapped port
-        let ip = match addr.ip() {
-            IpAddr::V4(ip) => ip.octets(),
-            _ => return Ok(()),
-        };
-        for i in 0..4 {
-            response.extend_from_slice(&[ip[i] ^ (STUN_MAGIC_COOKIE.to_be_bytes()[i])]);
-            // XOR-mapped IP
-        }
         Ok(())
     }
 
@@ -150,7 +122,7 @@ impl Server {
         let mut buff = [0u8; 1024];
 
         loop {
-            if let Ok((len, addr)) = self.udp_listener.recv_from(&mut buff).await {
+            if let Ok((len, addr)) = self.udp.recv_from(&mut buff).await {
                 let server = Arc::clone(&self);
                 let buff = buff[..len].to_vec();
                 tokio::spawn(async move {
@@ -169,7 +141,7 @@ impl Server {
         });
 
         loop {
-            let (stream, _) = self.listener.accept().await?;
+            let (stream, _) = self.tcp.accept().await?;
             tracing::info!("New connection from {:?}", stream.peer_addr());
             let permit = self.client_limit.clone().acquire_owned().await?;
             let server = Arc::clone(&self);

@@ -57,8 +57,14 @@ impl From<&SocketAddr> for ClientId {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone, Default)]
 pub struct SharedKey(String);
+
+impl SharedKey {
+    pub fn to_vec(self) -> Vec<u8> {
+        self.0.into_bytes()
+    }
+}
 
 impl std::fmt::Display for SharedKey {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -72,9 +78,10 @@ impl From<&str> for SharedKey {
     }
 }
 
-impl Into<Vec<u8>> for SharedKey {
-    fn into(self) -> Vec<u8> {
-        self.0.into_bytes()
+impl TryFrom<SharedKey> for Vec<u8> {
+    type Error = std::string::FromUtf8Error;
+    fn try_from(k: SharedKey) -> Result<Self, Self::Error> {
+        Ok(k.to_vec())
     }
 }
 

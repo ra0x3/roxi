@@ -4,24 +4,15 @@ use std::{
     net::Ipv4Addr,
     sync::Arc,
 };
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    sync::Mutex,
-    task,
-};
+use tokio::{sync::Mutex, task};
 use tun::{platform::Device as PlatformDevice, Configuration, Device as TunDevice};
-
-pub trait RoxiDevice {
-    fn read(&mut self, buff: &mut [u8]) -> ServerResult<usize>;
-    fn write(&mut self, buff: &[u8]) -> ServerResult<()>;
-    fn name(&self) -> String;
-}
 
 pub struct TunInterface {
     device: Arc<Mutex<PlatformDevice>>,
 }
 
 impl TunInterface {
+    #[allow(unused)]
     pub fn new() -> ServerResult<Self> {
         let mut config = Configuration::default();
         config
@@ -37,6 +28,7 @@ impl TunInterface {
         })
     }
 
+    #[allow(unused)]
     pub async fn run(&self) -> ServerResult<()> {
         loop {
             let buff = Arc::new(Mutex::new(vec![0u8; 1500]));

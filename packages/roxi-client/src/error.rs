@@ -19,4 +19,7 @@ pub enum ClientError {
 
     #[error("Not a stun binding request")]
     NotAStunBindingRequest,
+
+    #[error("From utf8 error: {0}")]
+    FromUtf8(#[from] std::string::FromUtf8Error),
 }

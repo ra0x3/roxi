@@ -80,16 +80,15 @@ impl Message {
     }
 
     pub fn data(&self) -> Vec<u8> {
-        self.data.clone().unwrap_or_else(Vec::new)
+        self.data.clone().unwrap_or_default()
     }
 
     pub fn serialize(self) -> ProtoResult<Vec<u8>> {
         let mut result = Vec::new();
-        let data = self.data.unwrap_or_else(Vec::new);
+        let data = self.data.unwrap_or_default();
         result.extend(&(self.kind as u16).to_be_bytes());
         result.extend(&self.hostname);
-        let len = data.len() as usize;
-        result.extend(&len.to_be_bytes());
+        result.extend(&(data.len().to_be_bytes()));
         result.extend(&data);
 
         Ok(result)
@@ -102,7 +101,7 @@ impl Message {
 
         let mut kindbuff = [0u8; 2];
         kindbuff.copy_from_slice(&data[..2]);
-        let kind: MessageKind = u16::from_be_bytes(kindbuff).try_into().unwrap();
+        let kind: MessageKind = u16::from_be_bytes(kindbuff).into();
 
         let mut hostnamebuff = [0u8; 6];
         hostnamebuff.copy_from_slice(&data[2..8]);
