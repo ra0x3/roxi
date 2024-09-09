@@ -26,7 +26,7 @@ impl TryFrom<&TcpStream> for ClientId {
     type Error = std::io::Error;
     fn try_from(s: &TcpStream) -> Result<Self, Self::Error> {
         let addr = s.peer_addr()?;
-        Ok(Self::from(addr.to_string()))
+        Ok(Self::from(addr.ip().to_string()))
     }
 }
 

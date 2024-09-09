@@ -8,17 +8,6 @@ use std::{
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Client {
-    max_clients: usize,
-}
-
-impl Client {
-    pub fn max_clients(&self) -> usize {
-        self.max_clients
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Tun {
     address: Ipv4Addr,
     netmask: Ipv4Addr,
@@ -27,52 +16,69 @@ pub struct Tun {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Session {
-    expiry: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Auth {
     shared_key: SharedKey,
+    session_ttl: u32,
 }
 
 impl Auth {
     pub fn shared_key(&self) -> SharedKey {
         self.shared_key.clone()
     }
+
+    pub fn session_ttl(&self) -> u32 {
+        self.session_ttl
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Server {
     interface: Ipv4Addr,
+    ip: Ipv4Addr,
     port: u16,
+    max_clients: u32,
 }
 
 impl Server {
     pub fn hostname(&self) -> String {
+        format!("{}:{}", self.ip, self.port)
+    }
+
+    pub fn interface(&self) -> String {
         format!("{}:{}", self.interface, self.port)
+    }
+
+    pub fn max_clients(&self) -> u32 {
+        self.max_clients
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     server: Server,
-    client: Client,
     tun: Tun,
     auth: Auth,
 }
 
 impl Config {
+    pub fn interface(&self) -> String {
+        self.server.interface()
+    }
+
     pub fn hostname(&self) -> String {
         self.server.hostname()
     }
 
-    pub fn max_clients(&self) -> usize {
-        self.client.max_clients()
+    pub fn max_clients(&self) -> u32 {
+        self.server.max_clients()
     }
 
     pub fn shared_key(&self) -> SharedKey {
         self.auth.shared_key()
+    }
+
+    pub fn session_ttl(&self) -> u32 {
+        self.auth.session_ttl()
     }
 }
 

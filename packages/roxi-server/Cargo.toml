@@ -12,6 +12,7 @@ description = "Roxi Server"
 
 [dependencies]
 async-std = { workspace = true }
+bytes = { version = "1" }
 ring = { version = "0.17" }
 roxi-lib = { path = "../roxi-lib" }
 roxi-proto = { path = "../roxi-proto" }

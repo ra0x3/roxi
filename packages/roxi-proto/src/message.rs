@@ -10,6 +10,9 @@ pub enum MessageKind {
     Pong = 1,
     AuthenticationRequest = 2,
     AuthenticationResponse = 3,
+    StunRequest = 4,
+    StunResponse = 5,
+    DisconnectSession = 6,
     Unknown,
 }
 
@@ -20,6 +23,9 @@ impl From<u16> for MessageKind {
             1 => MessageKind::Pong,
             2 => MessageKind::AuthenticationRequest,
             3 => MessageKind::AuthenticationResponse,
+            4 => MessageKind::StunRequest,
+            5 => MessageKind::StunResponse,
+            6 => MessageKind::DisconnectSession,
             _ => MessageKind::Unknown,
         }
     }
@@ -49,15 +55,14 @@ impl Message {
             .expect("Invalid hostname ip")
             .parse()
             .expect("Bad address ip");
-        let mut ip = ip.octets();
-        ip.reverse();
+        let ip = ip.octets();
 
         let port = parts
             .next()
             .expect("Invalid hostname port")
             .parse::<u16>()
             .expect("Bad address port")
-            .to_le_bytes();
+            .to_be_bytes();
 
         let mut buff = [0u8; 6];
         buff[..4].copy_from_slice(&ip);
@@ -81,10 +86,10 @@ impl Message {
     pub fn serialize(self) -> ProtoResult<Vec<u8>> {
         let mut result = Vec::new();
         let data = self.data.unwrap_or_else(Vec::new);
-        result.extend(&(self.kind as u16).to_le_bytes());
+        result.extend(&(self.kind as u16).to_be_bytes());
         result.extend(&self.hostname);
         let len = data.len() as usize;
-        result.extend(&len.to_le_bytes());
+        result.extend(&len.to_be_bytes());
         result.extend(&data);
 
         Ok(result)
@@ -97,7 +102,7 @@ impl Message {
 
         let mut kindbuff = [0u8; 2];
         kindbuff.copy_from_slice(&data[..2]);
-        let kind: MessageKind = u16::from_le_bytes(kindbuff).try_into().unwrap();
+        let kind: MessageKind = u16::from_be_bytes(kindbuff).try_into().unwrap();
 
         let mut hostnamebuff = [0u8; 6];
         hostnamebuff.copy_from_slice(&data[2..8]);
@@ -108,7 +113,7 @@ impl Message {
         let payload = match kind {
             MessageKind::Ping | MessageKind::Pong => None,
             _ => {
-                let n = usize::from_le_bytes(sizebuff);
+                let n = usize::from_be_bytes(sizebuff);
                 let payload = data[16..n].to_vec();
                 Some(payload)
             }
