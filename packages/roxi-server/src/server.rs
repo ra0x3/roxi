@@ -1,8 +1,11 @@
 use crate::{config::Config, error::ServerError, session::SessionManager, ServerResult};
 use async_std::sync::Arc;
-use roxi_lib::types::{ClientId, SharedKey};
+use roxi_lib::types::{ClientId, SharedKey, StunAddressKind, StunInfo};
 use roxi_proto::{Message, MessageKind};
-use std::{collections::HashMap, net::SocketAddr};
+use std::{
+    collections::HashMap,
+    net::{IpAddr, SocketAddr},
+};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream, UdpSocket},
@@ -19,8 +22,9 @@ pub struct Server {
     udp_listener: UdpSocket,
     client_limit: Arc<Semaphore>,
     config: Config,
-    clients: Arc<RwLock<HashMap<ClientId, TcpStream>>>,
-    sessions: SessionManager,
+    client_streams: Arc<RwLock<HashMap<ClientId, TcpStream>>>,
+    client_sessions: SessionManager,
+    client_stun_info: Arc<RwLock<HashMap<ClientId, StunInfo>>>,
 }
 
 impl Server {
@@ -34,12 +38,13 @@ impl Server {
             udp_listener,
             client_limit,
             config: config.clone(),
-            clients: Arc::new(RwLock::new(HashMap::new())),
-            sessions: SessionManager::new(config),
+            client_streams: Arc::new(RwLock::new(HashMap::new())),
+            client_sessions: SessionManager::new(config),
+            client_stun_info: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 
-    pub async fn handle_client(&self, mut stream: TcpStream) -> ServerResult<()> {
+    pub async fn handle_tcp(&self, mut stream: TcpStream) -> ServerResult<()> {
         tracing::info!("Handling incoming tcp stream");
 
         let mut buff = vec![0u8; 1024];
@@ -51,23 +56,36 @@ impl Server {
         tracing::info!("Read {n} bytes");
 
         let msg = Message::deserialize(&buff)?;
+        let client_id = ClientId::try_from(&stream)?;
 
-        tracing::info!("Received message: {msg:?}");
+        tracing::info!("Received message from {client_id:?}: {msg:?}");
 
         match msg.kind() {
             MessageKind::Ping => {
                 let msg = Message::new(MessageKind::Pong, self.config.hostname(), None);
+
+                tracing::info!("Sending message to {client_id:?}: {msg:?}");
                 let data = msg.serialize()?;
                 stream.write_all(&data).await?;
             }
             MessageKind::AuthenticationRequest => {
                 let key = SharedKey::try_from(msg.data())?;
-                let client_id = ClientId::try_from(&stream)?;
-                if let Err(_e) = self.sessions.authenticate(&client_id, &key).await {
+                if let Err(_e) = self.client_sessions.authenticate(&client_id, &key).await
+                {
                     return Err(ServerError::Unauthenticated);
                 }
 
-                self.clients.write().await.insert(client_id, stream);
+                let msg = Message::new(
+                    MessageKind::AuthenticationResponse,
+                    self.config.hostname(),
+                    Some(vec![1]),
+                );
+
+                tracing::info!("Sending message to {client_id:?}: {msg:?}");
+                let data = msg.serialize()?;
+                stream.write_all(&data).await?;
+
+                self.client_streams.write().await.insert(client_id, stream);
             }
             _ => {
                 return Err(ServerError::InvalidMessage);
@@ -86,6 +104,24 @@ impl Server {
 
         let tx_id = &buff[8..20];
 
+        let ip = match addr.ip() {
+            IpAddr::V4(ip) => ip,
+            _ => {
+                tracing::warn!("Only Ipv4 supported at this time");
+                return Err(ServerError::UnsupportedIpAddrType);
+            }
+        };
+
+        let port = addr.port();
+        let client_id = ClientId::from(&addr);
+        let info = StunInfo::new(StunAddressKind::Public, ip, port);
+
+        tracing::info!("Adding stun info for {client_id:?}: {info:?}");
+        self.client_stun_info.write().await.insert(client_id, info);
+
+        // We don't really need to return this since the client won't do anything
+        // with the response anyway, but it can't hurt to perform actions of an
+        // actual stun server.
         let mut response = bytes::BytesMut::with_capacity(32);
         response.extend_from_slice(&u16::to_be_bytes(STUN_BINDING_RESPONSE));
         response.extend_from_slice(&u16::to_be_bytes(12)); // Length
@@ -99,7 +135,7 @@ impl Server {
             addr.port() ^ (STUN_MAGIC_COOKIE >> 16) as u16,
         )); // XOR-mapped port
         let ip = match addr.ip() {
-            std::net::IpAddr::V4(ip) => ip.octets(),
+            IpAddr::V4(ip) => ip.octets(),
             _ => return Ok(()),
         };
         for i in 0..4 {
@@ -110,14 +146,13 @@ impl Server {
     }
 
     pub async fn run_stun(self: Arc<Self>) -> ServerResult<()> {
-        tracing::info!("UDP server listening at {}", self.config.hostname());
-        let server = Arc::clone(&self);
+        tracing::info!("UDP server listening at {}", self.config.interface());
         let mut buff = [0u8; 1024];
 
         loop {
             if let Ok((len, addr)) = self.udp_listener.recv_from(&mut buff).await {
                 let server = Arc::clone(&self);
-                let buf = buff[..len].to_vec();
+                let buff = buff[..len].to_vec();
                 tokio::spawn(async move {
                     let _ = server.handle_stun(&buff, addr).await;
                 });
@@ -126,20 +161,21 @@ impl Server {
     }
 
     pub async fn run(self: Arc<Self>) -> ServerResult<()> {
-        tracing::info!("TCP server listening at {}", self.config.hostname());
+        tracing::info!("TCP server listening at {}", self.config.interface());
 
         let server = Arc::clone(&self);
         tokio::spawn(async move {
-            server.sessions.monitor_sessions().await;
+            server.client_sessions.monitor_sessions().await;
         });
 
         loop {
             let (stream, _) = self.listener.accept().await?;
+            tracing::info!("New connection from {:?}", stream.peer_addr());
             let permit = self.client_limit.clone().acquire_owned().await?;
             let server = Arc::clone(&self);
 
             tokio::spawn(async move {
-                if let Err(e) = server.handle_client(stream).await {
+                if let Err(e) = server.handle_tcp(stream).await {
                     tracing::error!("Error handling client: {e}");
                 }
 

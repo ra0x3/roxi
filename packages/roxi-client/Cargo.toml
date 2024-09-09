@@ -12,6 +12,8 @@ description = "Roxi Client"
 
 [dependencies]
 async-std = { workspace = true }
+bytes = { version = "1" }
+rand = { version = "0.8" }
 ring = { version = "0.17" }
 roxi-lib = { path = "../roxi-lib" }
 roxi-proto = { path = "../roxi-proto" }

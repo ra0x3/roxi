@@ -27,12 +27,17 @@ pub struct Gateway {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RoxiServer {
     interface: Ipv4Addr,
+    ip: Ipv4Addr,
     port: u32,
 }
 
 impl RoxiServer {
     pub fn hostname(&self) -> String {
-        format!("{}:{}", self.interface, self.port)
+        format!("{}:{}", self.ip, self.port)
+    }
+
+    pub fn interface(&self) -> String {
+        self.interface.to_string()
     }
 }
 
@@ -44,12 +49,16 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn roxi_server_hostname(&self) -> String {
+    pub fn remote_hostname(&self) -> String {
         self.roxi_server.hostname()
     }
 
     pub fn shared_key(&self) -> SharedKey {
         self.auth.shared_key()
+    }
+
+    pub fn udp_bind(&self) -> String {
+        format!("{}:{}", self.roxi_server.interface(), 59600)
     }
 }
 

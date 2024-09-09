@@ -1,5 +1,26 @@
 use serde::{Deserialize, Serialize};
+use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpStream;
+
+#[repr(u8)]
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+pub enum StunAddressKind {
+    Public = 0,
+    Private = 1,
+}
+
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+pub struct StunInfo {
+    kind: StunAddressKind,
+    ip: Ipv4Addr,
+    port: u16,
+}
+
+impl StunInfo {
+    pub fn new(kind: StunAddressKind, ip: Ipv4Addr, port: u16) -> Self {
+        Self { kind, ip, port }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
 pub struct ClientId(String);
@@ -27,6 +48,12 @@ impl TryFrom<&TcpStream> for ClientId {
     fn try_from(s: &TcpStream) -> Result<Self, Self::Error> {
         let addr = s.peer_addr()?;
         Ok(Self::from(addr.ip().to_string()))
+    }
+}
+
+impl From<&SocketAddr> for ClientId {
+    fn from(s: &SocketAddr) -> Self {
+        Self::from(s.ip().to_string())
     }
 }
 

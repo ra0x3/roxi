@@ -114,7 +114,7 @@ impl Message {
             MessageKind::Ping | MessageKind::Pong => None,
             _ => {
                 let n = usize::from_be_bytes(sizebuff);
-                let payload = data[16..n].to_vec();
+                let payload = data[16..16 + n].to_vec();
                 Some(payload)
             }
         };

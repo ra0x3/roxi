@@ -1,4 +1,4 @@
-pub(crate) use crate::command::{connect, hello, serve};
+pub(crate) use crate::command::{connect, hello, ping, serve};
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -17,6 +17,8 @@ pub enum RoxiCli {
     Serve(serve::Args),
     #[clap(name = "connect", about = "Connect to Roxi server")]
     Connect(connect::Args),
+    #[clap(name = "ping", about = "Ping Roxi server")]
+    Ping(ping::Args),
 }
 
 pub async fn run_cli() -> Result<(), anyhow::Error> {
@@ -26,5 +28,6 @@ pub async fn run_cli() -> Result<(), anyhow::Error> {
         RoxiCli::Hello(command) => hello::exec(command),
         RoxiCli::Serve(command) => serve::exec(command).await,
         RoxiCli::Connect(command) => connect::exec(command).await,
+        RoxiCli::Ping(command) => ping::exec(command).await,
     }
 }

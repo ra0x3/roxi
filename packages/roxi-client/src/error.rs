@@ -16,4 +16,7 @@ pub enum ClientError {
 
     #[error("Protocol error: {0}")]
     Proto(#[from] roxi_proto::ProtoError),
+
+    #[error("Not a stun binding request")]
+    NotAStunBindingRequest,
 }

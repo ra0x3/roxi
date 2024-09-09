@@ -17,9 +17,6 @@ pub enum ServerError {
     #[error("Unspecified ring error")]
     Unspecified,
 
-    #[error("Invalid shared key")]
-    InvalidSharedKey,
-
     #[error("Tun error: {0}")]
     Tun(#[from] tun::Error),
 
@@ -43,6 +40,9 @@ pub enum ServerError {
 
     #[error("FromUt8 error: {0}")]
     FromUtf8(#[from] std::string::FromUtf8Error),
+
+    #[error("Only Ipv4 is supported")]
+    UnsupportedIpAddrType,
 }
 
 impl From<ring::error::Unspecified> for ServerError {

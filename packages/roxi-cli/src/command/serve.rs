@@ -26,8 +26,13 @@ pub async fn exec(args: Args) -> anyhow::Result<()> {
     init_logging().await?;
 
     subsystems.spawn(async move {
-        if let Err(e) = server.run().await {
-            tracing::error!("Server failed: {e}");
+        let tcp = server.clone().run();
+        let udp = server.clone().run_stun();
+
+        let _ = tokio::join!(tcp, udp);
+
+        if let Err(e) = server.run_stun().await {
+            tracing::error!("Stun server failed: {e}");
         }
 
         if let Err(e) = tx.send(()) {
