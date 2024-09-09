@@ -6,15 +6,14 @@ use std::collections::HashMap;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
-    sync::{Mutex, Semaphore},
+    sync::{RwLock, Semaphore},
 };
 
 pub struct Server {
     listener: TcpListener,
     client_limit: Arc<Semaphore>,
     config: Config,
-    #[allow(unused)]
-    clients: Arc<Mutex<HashMap<ClientId, TcpStream>>>,
+    clients: Arc<RwLock<HashMap<ClientId, TcpStream>>>,
     sessions: SessionManager,
 }
 
@@ -27,7 +26,7 @@ impl Server {
             listener,
             client_limit,
             config: config.clone(),
-            clients: Arc::new(Mutex::new(HashMap::new())),
+            clients: Arc::new(RwLock::new(HashMap::new())),
             sessions: SessionManager::new(config),
         })
     }
@@ -37,7 +36,6 @@ impl Server {
 
         let mut buff = vec![0u8; 1024];
         let n = stream.read(&mut buff).await?;
-
         if n == 0 {
             return Err(ServerError::ConnectionClosed);
         }
@@ -60,6 +58,8 @@ impl Server {
                 if let Err(_e) = self.sessions.authenticate(&client_id, &key).await {
                     return Err(ServerError::Unauthenticated);
                 }
+
+                self.clients.write().await.insert(client_id, stream);
             }
             _ => {
                 return Err(ServerError::InvalidMessage);
@@ -71,6 +71,12 @@ impl Server {
 
     pub async fn run(self: Arc<Self>) -> ServerResult<()> {
         tracing::info!("Server listening at {}", self.config.hostname());
+
+        let server = Arc::clone(&self);
+        tokio::spawn(async move {
+            server.sessions.monitor_sessions().await;
+        });
+
         loop {
             let (stream, _) = self.listener.accept().await?;
             let permit = self.client_limit.clone().acquire_owned().await?;
