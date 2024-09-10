@@ -13,20 +13,13 @@ pub struct Client {
     config: Config,
     tcp: TcpStream,
     udp: UdpSocket,
-    hostname: String,
 }
 
 impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
-        let hostname = config.remote_hostname();
-        let tcp = TcpStream::connect(&hostname).await?;
+        let tcp = TcpStream::connect(&config.remote_hostname()).await?;
         let udp = UdpSocket::bind(&config.udp_bind()).await?;
-        Ok(Self {
-            config,
-            hostname,
-            tcp,
-            udp,
-        })
+        Ok(Self { config, tcp, udp })
     }
 
     pub async fn connect(&mut self) -> ClientResult<()> {
@@ -37,7 +30,7 @@ impl Client {
     }
 
     pub async fn ping(&mut self) -> ClientResult<()> {
-        let msg = Message::new(MessageKind::Ping, self.hostname.clone(), None);
+        let msg = Message::new(MessageKind::Ping, self.config.remote_hostname(), None);
         tracing::info!("Sending message to server: {msg:?}");
         match self.send(msg).await {
             Ok(Some(msg)) => {
@@ -54,11 +47,11 @@ impl Client {
         Ok(())
     }
 
-    async fn authenticate(&mut self) -> ClientResult<()> {
+    pub async fn authenticate(&mut self) -> ClientResult<()> {
         let data = self.config.shared_key().try_into()?;
         let msg = Message::new(
             MessageKind::AuthenticationRequest,
-            self.hostname.clone(),
+            self.config.remote_hostname(),
             Some(data),
         );
         tracing::info!("Sending message to server: {msg:?}");
@@ -77,7 +70,9 @@ impl Client {
         Ok(())
     }
 
-    async fn stun(&mut self) -> ClientResult<()> {
+    pub async fn stun(&mut self) -> ClientResult<()> {
+        tracing::info!("Sending info to STUN server");
+
         let mut request = BytesMut::with_capacity(20);
         request.extend_from_slice(&u16::to_be_bytes(STUN_BINDING_REQUEST_TYPE));
         request.extend_from_slice(&u16::to_be_bytes(0)); // Length
@@ -91,6 +86,8 @@ impl Client {
         self.udp
             .send_to(&request, self.config.remote_hostname())
             .await?;
+
+        tracing::info!("Successfully sent info to STUN server");
 
         Ok(())
     }

@@ -81,7 +81,6 @@ jobs:
         with:
           toolchain: stable
           target: ${{ matrix.platform }}
-          profile: minimal
 
       - name: Build
         run: cargo build --target ${{ matrix.platform }} --release

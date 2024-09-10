@@ -12,7 +12,12 @@ pub enum MessageKind {
     AuthenticationResponse = 3,
     StunRequest = 4,
     StunResponse = 5,
-    DisconnectSession = 6,
+    DisconnectSessionRequest = 6,
+    DisconnectSessionResponse = 7,
+    StunInfoRequest = 8,
+    StunInfoResponse = 9,
+    GatewayRequest = 10,
+    GatewayResponse = 11,
     Unknown,
 }
 
@@ -25,7 +30,12 @@ impl From<u16> for MessageKind {
             3 => MessageKind::AuthenticationResponse,
             4 => MessageKind::StunRequest,
             5 => MessageKind::StunResponse,
-            6 => MessageKind::DisconnectSession,
+            6 => MessageKind::DisconnectSessionRequest,
+            7 => MessageKind::DisconnectSessionResponse,
+            8 => MessageKind::StunInfoRequest,
+            9 => MessageKind::StunInfoResponse,
+            10 => MessageKind::GatewayRequest,
+            11 => MessageKind::GatewayResponse,
             _ => MessageKind::Unknown,
         }
     }
