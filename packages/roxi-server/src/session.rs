@@ -65,13 +65,12 @@ impl SessionManager {
         Ok(())
     }
 
-    #[allow(unused)]
-    pub async fn session_exists(&self, client_id: &ClientId) -> bool {
+    pub async fn exists(&self, client_id: &ClientId) -> bool {
         self.sessions.read().await.contains_key(client_id)
     }
 
     #[allow(unused)]
-    pub async fn remove_session(&self, client_id: &ClientId) {
+    pub async fn remove(&self, client_id: &ClientId) {
         self.sessions.write().await.remove(client_id);
     }
 
@@ -81,14 +80,14 @@ impl SessionManager {
     }
 
     #[allow(unused)]
-    pub async fn drop_expired_sessions(&self) {
+    pub async fn cleanup(&self) {
         self.sessions
             .write()
             .await
             .retain(|_, session| !session.expired());
     }
 
-    pub async fn monitor_sessions(&self) {
+    pub async fn monitor(&self) {
         let mut interval = time::interval(Duration::from_secs(10));
         loop {
             interval.tick().await;
@@ -132,9 +131,9 @@ auth:
         let manager = SessionManager::new(config);
         let _ = manager.authenticate(&client, &key).await;
 
-        assert!(manager.session_exists(&client).await);
+        assert!(manager.exists(&client).await);
 
-        manager.remove_session(&client).await;
-        assert!(!manager.session_exists(&client).await);
+        manager.remove(&client).await;
+        assert!(!manager.exists(&client).await);
     }
 }

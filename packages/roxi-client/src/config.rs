@@ -10,21 +10,27 @@ use std::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Stun {
-    ip: Ipv4Addr,
-    port: u16,
+    ip: Option<Ipv4Addr>,
+    port: Option<u16>,
 }
 
 impl From<[u8; 6]> for Stun {
     fn from(d: [u8; 6]) -> Self {
         let ip = Ipv4Addr::new(d[0], d[1], d[2], d[3]);
         let port = u16::from_be_bytes([d[4], d[5]]);
-        Self { ip, port }
+        Self {
+            ip: Some(ip),
+            port: Some(port),
+        }
     }
 }
 
 impl Stun {
-    pub fn addr(&self) -> String {
-        format!("{}:{}", self.ip, self.port)
+    pub fn addr(&self) -> Option<String> {
+        if self.ip.is_some() && self.port.is_some() {
+            return Some(format!("{}:{}", self.ip.unwrap(), self.port.unwrap()));
+        }
+        None
     }
 }
 
@@ -82,7 +88,7 @@ impl Config {
         self.auth.shared_key()
     }
 
-    pub fn stun_addr(&self) -> String {
+    pub fn stun_addr(&self) -> Option<String> {
         self.stun.addr()
     }
 

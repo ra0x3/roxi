@@ -5,6 +5,38 @@ use strum::{AsRefStr, Display};
 
 #[repr(u16)]
 #[derive(Debug, AsRefStr, Display, Serialize, Deserialize)]
+pub enum MessageStatus {
+    Pending = 0,
+    r#Ok = 200,
+    Created = 201,
+    Unauthorized = 401,
+    Forbidden = 403,
+    NotFound = 404,
+    BadData = 405,
+    ImATeapot = 419,
+    InternalServerError = 500,
+    Unknown,
+}
+
+impl From<u16> for MessageStatus {
+    fn from(m: u16) -> Self {
+        match m {
+            0 => MessageStatus::Pending,
+            200 => MessageStatus::r#Ok,
+            201 => MessageStatus::Created,
+            401 => MessageStatus::Unauthorized,
+            403 => MessageStatus::Forbidden,
+            404 => MessageStatus::NotFound,
+            405 => MessageStatus::BadData,
+            419 => MessageStatus::ImATeapot,
+            500 => MessageStatus::InternalServerError,
+            _ => MessageStatus::Unknown,
+        }
+    }
+}
+
+#[repr(u16)]
+#[derive(Debug, AsRefStr, Display, Serialize, Deserialize)]
 pub enum MessageKind {
     Ping = 0,
     Pong = 1,
@@ -18,6 +50,7 @@ pub enum MessageKind {
     StunInfoResponse = 9,
     GatewayRequest = 10,
     GatewayResponse = 11,
+    GenericErrorResponse = 12,
     Unknown,
 }
 
@@ -36,6 +69,7 @@ impl From<u16> for MessageKind {
             9 => MessageKind::StunInfoResponse,
             10 => MessageKind::GatewayRequest,
             11 => MessageKind::GatewayResponse,
+            12 => MessageKind::GenericErrorResponse,
             _ => MessageKind::Unknown,
         }
     }
@@ -44,15 +78,22 @@ impl From<u16> for MessageKind {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
     kind: MessageKind,
+    status: MessageStatus,
     sender_addr: [u8; 6],
     data: Option<Vec<u8>>,
 }
 
 impl Message {
-    pub fn new(kind: MessageKind, addr: String, data: Option<Vec<u8>>) -> Self {
+    pub fn new(
+        kind: MessageKind,
+        status: MessageStatus,
+        addr: String,
+        data: Option<Vec<u8>>,
+    ) -> Self {
         let sender_addr = Message::pack_addr(addr);
         Self {
             kind,
+            status,
             sender_addr,
             data,
         }
@@ -89,6 +130,10 @@ impl Message {
         &self.kind
     }
 
+    pub fn status(&self) -> &MessageStatus {
+        &self.status
+    }
+
     pub fn sender_addr(&self) -> [u8; 6] {
         self.sender_addr
     }
@@ -101,6 +146,7 @@ impl Message {
         let mut result = Vec::new();
         let data = self.data.unwrap_or_default();
         result.extend(&(self.kind as u16).to_be_bytes());
+        result.extend(&(self.status as u16).to_be_bytes());
         result.extend(&self.sender_addr);
         result.extend(&(data.len().to_be_bytes()));
         result.extend(&data);
@@ -117,23 +163,28 @@ impl Message {
         kindbuff.copy_from_slice(&data[..2]);
         let kind: MessageKind = u16::from_be_bytes(kindbuff).into();
 
+        let mut statusbuff = [0u8; 2];
+        statusbuff.copy_from_slice(&data[2..4]);
+        let status: MessageStatus = u16::from_be_bytes(statusbuff).into();
+
         let mut addrbuff = [0u8; 6];
-        addrbuff.copy_from_slice(&data[2..8]);
+        addrbuff.copy_from_slice(&data[4..10]);
 
         let mut sizebuff = [0u8; 8];
-        sizebuff.copy_from_slice(&data[8..16]);
+        sizebuff.copy_from_slice(&data[10..18]);
 
         let payload = match kind {
             MessageKind::Ping | MessageKind::Pong => None,
             _ => {
                 let n = usize::from_be_bytes(sizebuff);
-                let payload = data[16..16 + n].to_vec();
+                let payload = data[18..18 + n].to_vec();
                 Some(payload)
             }
         };
 
         Ok(Self {
             kind,
+            status,
             sender_addr: addrbuff,
             data: payload,
         })

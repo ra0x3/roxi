@@ -1,7 +1,7 @@
 use crate::{config::Config, error::ServerError, session::SessionManager, ServerResult};
 use async_std::sync::Arc;
 use roxi_lib::types::{ClientId, SharedKey, StunAddressKind, StunInfo};
-use roxi_proto::{Message, MessageKind};
+use roxi_proto::{Message, MessageKind, MessageStatus};
 use std::{
     collections::HashMap,
     net::{IpAddr, SocketAddr},
@@ -9,7 +9,7 @@ use std::{
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream, UdpSocket},
-    sync::{RwLock, Semaphore},
+    sync::{Mutex, RwLock, Semaphore},
 };
 
 const STUN_BINDING_REQUEST: u16 = 0x0001;
@@ -19,7 +19,7 @@ pub struct Server {
     udp: UdpSocket,
     client_limit: Arc<Semaphore>,
     config: Config,
-    client_streams: Arc<RwLock<HashMap<ClientId, TcpStream>>>,
+    client_streams: Arc<RwLock<HashMap<ClientId, Arc<Mutex<TcpStream>>>>>,
     client_sessions: SessionManager,
     client_stun: Arc<RwLock<HashMap<ClientId, StunInfo>>>,
 }
@@ -47,6 +47,7 @@ impl Server {
         let mut buff = vec![0u8; 1024];
         let n = stream.read(&mut buff).await?;
         if n == 0 {
+            tracing::warn!("Client connection closed");
             return Err(ServerError::ConnectionClosed);
         }
 
@@ -54,41 +55,102 @@ impl Server {
 
         let msg = Message::deserialize(&buff)?;
         let client_id = ClientId::try_from(&stream)?;
+        let stream = Arc::new(Mutex::new(stream));
 
         tracing::info!("Received message from {client_id:?}: {msg:?}");
 
         match msg.kind() {
             MessageKind::Ping => {
-                let msg = Message::new(MessageKind::Pong, self.config.addr(), None);
-
-                tracing::info!("Sending message to {client_id:?}: {msg:?}");
-                let data = msg.serialize()?;
-                stream.write_all(&data).await?;
+                self.send(
+                    &client_id,
+                    Message::new(
+                        MessageKind::Pong,
+                        MessageStatus::r#Ok,
+                        self.config.addr(),
+                        None,
+                    ),
+                    stream.clone(),
+                )
+                .await?;
             }
             MessageKind::AuthenticationRequest => {
                 let key = SharedKey::try_from(msg.data())?;
                 if let Err(_e) = self.client_sessions.authenticate(&client_id, &key).await
                 {
+                    self.send(
+                        &client_id,
+                        Message::new(
+                            MessageKind::AuthenticationResponse,
+                            MessageStatus::Unauthorized,
+                            self.config.addr(),
+                            None,
+                        ),
+                        stream.clone(),
+                    )
+                    .await?;
                     return Err(ServerError::Unauthenticated);
                 }
 
-                let msg = Message::new(
-                    MessageKind::AuthenticationResponse,
-                    self.config.addr(),
-                    Some(vec![1]),
-                );
+                self.send(
+                    &client_id,
+                    Message::new(
+                        MessageKind::AuthenticationResponse,
+                        MessageStatus::r#Ok,
+                        self.config.addr(),
+                        Some(vec![1]),
+                    ),
+                    stream.clone(),
+                )
+                .await?;
 
-                tracing::info!("Sending message to {client_id:?}: {msg:?}");
-                let data = msg.serialize()?;
-                stream.write_all(&data).await?;
-
-                self.client_streams.write().await.insert(client_id, stream);
+                self.client_streams
+                    .write()
+                    .await
+                    .insert(client_id, stream.clone());
+            }
+            MessageKind::StunInfoRequest => {
+                if !self.client_sessions.exists(&client_id).await {
+                    self.send(
+                        &client_id,
+                        Message::new(
+                            MessageKind::StunInfoResponse,
+                            MessageStatus::Unauthorized,
+                            self.config.addr(),
+                            None,
+                        ),
+                        stream,
+                    )
+                    .await?;
+                }
             }
             _ => {
+                self.send(
+                    &client_id,
+                    Message::new(
+                        MessageKind::GenericErrorResponse,
+                        MessageStatus::BadData,
+                        self.config.addr(),
+                        None,
+                    ),
+                    stream.clone(),
+                )
+                .await?;
                 return Err(ServerError::InvalidMessage);
             }
         }
 
+        Ok(())
+    }
+
+    async fn send(
+        &self,
+        client_id: &ClientId,
+        msg: Message,
+        stream: Arc<Mutex<TcpStream>>,
+    ) -> ServerResult<()> {
+        tracing::info!("Sending message to {client_id:?}: {msg:?}");
+        let data = msg.serialize()?;
+        stream.lock().await.write_all(&data).await?;
         Ok(())
     }
 
@@ -137,7 +199,7 @@ impl Server {
 
         let server = Arc::clone(&self);
         tokio::spawn(async move {
-            server.client_sessions.monitor_sessions().await;
+            server.client_sessions.monitor().await;
         });
 
         loop {

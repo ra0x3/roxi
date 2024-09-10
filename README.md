@@ -1,5 +1,16 @@
 # roxi
 
+## Commands
+
+| Command   | Description                         | Implemented |
+|-----------|-------------------------------------|-------------|
+| `hello`   | Test hello command                  | ✔️           |
+| `serve`   | Start Roxi server                   | ✔️           |
+| `connect` | Connect to Roxi server              | ✔️           |
+| `ping`    | Ping Roxi server                    | ✔️           |
+| `auth`    | Authenticate against Roxi server    | ✔️           |
+| `stun`    | Send public IP to STUN server       | ✔️           |
+
 ## Development
 
 ### Testing TUN interface on Mac

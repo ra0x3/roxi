@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 async-std = { workspace = true }
 roxi-server = { path = "../roxi-server" }
-roxi = { path = "../roxi" }
 roxi-crypto = { path = "../roxi-crypto" }
 roxi-proto = { path = "../roxi-proto" }
 roxi-cli = { path = "../roxi-cli" }
