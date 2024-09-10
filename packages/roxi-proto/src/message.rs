@@ -44,21 +44,21 @@ impl From<u16> for MessageKind {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Message {
     kind: MessageKind,
-    hostname: [u8; 6],
+    sender_addr: [u8; 6],
     data: Option<Vec<u8>>,
 }
 
 impl Message {
-    pub fn new(kind: MessageKind, hostname: String, data: Option<Vec<u8>>) -> Self {
-        let hostname = Message::hostname_to_arr(hostname);
+    pub fn new(kind: MessageKind, addr: String, data: Option<Vec<u8>>) -> Self {
+        let sender_addr = Message::pack_addr(addr);
         Self {
             kind,
-            hostname,
+            sender_addr,
             data,
         }
     }
 
-    fn hostname_to_arr(hostname: String) -> [u8; 6] {
+    fn pack_addr(hostname: String) -> [u8; 6] {
         let mut parts = hostname.split(':');
         let ip: Ipv4Addr = parts
             .next()
@@ -89,6 +89,10 @@ impl Message {
         &self.kind
     }
 
+    pub fn sender_addr(&self) -> [u8; 6] {
+        self.sender_addr
+    }
+
     pub fn data(&self) -> Vec<u8> {
         self.data.clone().unwrap_or_default()
     }
@@ -97,7 +101,7 @@ impl Message {
         let mut result = Vec::new();
         let data = self.data.unwrap_or_default();
         result.extend(&(self.kind as u16).to_be_bytes());
-        result.extend(&self.hostname);
+        result.extend(&self.sender_addr);
         result.extend(&(data.len().to_be_bytes()));
         result.extend(&data);
 
@@ -113,8 +117,8 @@ impl Message {
         kindbuff.copy_from_slice(&data[..2]);
         let kind: MessageKind = u16::from_be_bytes(kindbuff).into();
 
-        let mut hostnamebuff = [0u8; 6];
-        hostnamebuff.copy_from_slice(&data[2..8]);
+        let mut addrbuff = [0u8; 6];
+        addrbuff.copy_from_slice(&data[2..8]);
 
         let mut sizebuff = [0u8; 8];
         sizebuff.copy_from_slice(&data[8..16]);
@@ -130,7 +134,7 @@ impl Message {
 
         Ok(Self {
             kind,
-            hostname: hostnamebuff,
+            sender_addr: addrbuff,
             data: payload,
         })
     }

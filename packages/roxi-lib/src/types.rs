@@ -2,6 +2,34 @@ use serde::{Deserialize, Serialize};
 use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpStream;
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Address {
+    ip: Ipv4Addr,
+    port: u16,
+}
+
+impl TryFrom<Option<Vec<u8>>> for Address {
+    type Error = Box<dyn std::error::Error>;
+    fn try_from(d: Option<Vec<u8>>) -> Result<Self, Self::Error> {
+        match d {
+            Some(d) => {
+                let ip = Ipv4Addr::new(d[0], d[1], d[2], d[3]);
+                let port = u16::from_be_bytes([d[4], d[5]]);
+                Ok(Self { ip, port })
+            }
+            None => Err("Address expected".into()),
+        }
+    }
+}
+
+impl From<[u8; 6]> for Address {
+    fn from(d: [u8; 6]) -> Self {
+        let ip = Ipv4Addr::new(d[0], d[1], d[2], d[3]);
+        let port = u16::from_be_bytes([d[4], d[5]]);
+        Self { ip, port }
+    }
+}
+
 #[repr(u8)]
 #[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
 pub enum StunAddressKind {

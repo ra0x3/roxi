@@ -40,7 +40,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn hostname(&self) -> String {
+    pub fn addr(&self) -> String {
         format!("{}:{}", self.ip, self.port)
     }
 
@@ -65,8 +65,8 @@ impl Config {
         self.server.interface()
     }
 
-    pub fn hostname(&self) -> String {
-        self.server.hostname()
+    pub fn addr(&self) -> String {
+        self.server.addr()
     }
 
     pub fn max_clients(&self) -> u32 {

@@ -26,8 +26,8 @@ pub struct Server {
 
 impl Server {
     pub async fn new(config: Config) -> ServerResult<Self> {
-        let tcp = TcpListener::bind(config.hostname()).await?;
-        let udp = UdpSocket::bind(config.hostname()).await?;
+        let tcp = TcpListener::bind(config.addr()).await?;
+        let udp = UdpSocket::bind(config.addr()).await?;
         let client_limit = Arc::new(Semaphore::new(config.max_clients() as usize));
 
         Ok(Self {
@@ -59,7 +59,7 @@ impl Server {
 
         match msg.kind() {
             MessageKind::Ping => {
-                let msg = Message::new(MessageKind::Pong, self.config.hostname(), None);
+                let msg = Message::new(MessageKind::Pong, self.config.addr(), None);
 
                 tracing::info!("Sending message to {client_id:?}: {msg:?}");
                 let data = msg.serialize()?;
@@ -74,7 +74,7 @@ impl Server {
 
                 let msg = Message::new(
                     MessageKind::AuthenticationResponse,
-                    self.config.hostname(),
+                    self.config.addr(),
                     Some(vec![1]),
                 );
 

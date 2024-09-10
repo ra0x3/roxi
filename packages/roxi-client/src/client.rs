@@ -1,5 +1,9 @@
-use crate::{config::Config, ClientResult};
+use crate::{
+    config::{Config, Stun},
+    ClientResult,
+};
 use bytes::BytesMut;
+use roxi_lib::types::Address;
 use roxi_proto::{Message, MessageKind};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -17,7 +21,7 @@ pub struct Client {
 
 impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
-        let tcp = TcpStream::connect(&config.remote_hostname()).await?;
+        let tcp = TcpStream::connect(&config.remote_addr()).await?;
         let udp = UdpSocket::bind(&config.udp_bind()).await?;
         Ok(Self { config, tcp, udp })
     }
@@ -30,8 +34,7 @@ impl Client {
     }
 
     pub async fn ping(&mut self) -> ClientResult<()> {
-        let msg = Message::new(MessageKind::Ping, self.config.remote_hostname(), None);
-        tracing::info!("Sending message to server: {msg:?}");
+        let msg = Message::new(MessageKind::Ping, self.config.remote_addr(), None);
         match self.send(msg).await {
             Ok(Some(msg)) => {
                 tracing::info!("Successfully received ping response: {msg:?}");
@@ -51,10 +54,9 @@ impl Client {
         let data = self.config.shared_key().try_into()?;
         let msg = Message::new(
             MessageKind::AuthenticationRequest,
-            self.config.remote_hostname(),
+            self.config.remote_addr(),
             Some(data),
         );
-        tracing::info!("Sending message to server: {msg:?}");
         match self.send(msg).await {
             Ok(Some(msg)) => {
                 tracing::info!("Successfully authenticated against server: {msg:?}");
@@ -71,8 +73,6 @@ impl Client {
     }
 
     pub async fn stun(&mut self) -> ClientResult<()> {
-        tracing::info!("Sending info to STUN server");
-
         let mut request = BytesMut::with_capacity(20);
         request.extend_from_slice(&u16::to_be_bytes(STUN_BINDING_REQUEST_TYPE));
         request.extend_from_slice(&u16::to_be_bytes(0)); // Length
@@ -83,8 +83,9 @@ impl Client {
             request.extend_from_slice(&[rand::random::<u8>()]);
         }
 
+        tracing::info!("Sending info to STUN server");
         self.udp
-            .send_to(&request, self.config.remote_hostname())
+            .send_to(&request, self.config.remote_addr())
             .await?;
 
         tracing::info!("Successfully sent info to STUN server");
@@ -92,7 +93,50 @@ impl Client {
         Ok(())
     }
 
+    pub async fn request_gateway(&mut self) -> ClientResult<()> {
+        let msg = Message::new(
+            MessageKind::StunInfoRequest,
+            self.config.remote_addr(),
+            None,
+        );
+        match self.send(msg).await {
+            Ok(Some(msg)) => {
+                tracing::info!("Successfully fetched STUN info: {msg:?}");
+                let stun_info = Stun::from(msg.sender_addr());
+                self.config.set_stun(stun_info);
+                // TODO: Save config here
+
+                let msg = Message::new(
+                    MessageKind::GatewayRequest,
+                    self.config.remote_addr(),
+                    None,
+                );
+                match self.send(msg).await {
+                    Ok(Some(mut msg)) => {
+                        tracing::info!("Successfully requested gateway: {msg:?}");
+                        let _peer_addr = Address::try_from(msg.into_inner()).unwrap();
+                    }
+                    Err(e) => {
+                        tracing::error!("Could not get gateway from server: {e}");
+                    }
+                    _ => {
+                        tracing::error!("Received empty response for gateway request");
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Could not fetch STUN info: {e}");
+            }
+            _ => {
+                tracing::error!("Received empty STUN info response from server");
+            }
+        }
+
+        Ok(())
+    }
+
     async fn send(&mut self, m: Message) -> ClientResult<Option<Message>> {
+        tracing::info!("Sending message to server: {m:?}");
         let data = m.serialize()?;
         tracing::info!("Sending {} bytes", data.len());
         self.tcp.write_all(&data).await?;
