@@ -85,6 +85,7 @@ pub struct Config {
     auth: Auth,
     gateway: Gateway,
     stun: Stun,
+    path: String,
 }
 
 impl Config {
@@ -115,9 +116,9 @@ impl Config {
         self.gateway.max_clients()
     }
 
-    pub fn save(&self, p: PathBuf) -> ClientResult<()> {
+    pub fn save(&self) -> ClientResult<()> {
         let content = serde_yaml::to_string(&self)?;
-        let mut f = File::create(p)?;
+        let mut f = File::create(&self.path)?;
         f.write_all(content.as_bytes())?;
         Ok(())
     }

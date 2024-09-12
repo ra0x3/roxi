@@ -8,8 +8,26 @@ pub struct Address {
     port: u16,
 }
 
+impl Address {
+    pub fn ip(&self) -> Ipv4Addr {
+        self.ip
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut result = Vec::new();
+        result.extend(self.ip.octets());
+        result.extend(self.port.to_be_bytes());
+
+        result
+    }
+}
+
 impl TryFrom<Option<Vec<u8>>> for Address {
-    type Error = Box<dyn std::error::Error>;
+    type Error = anyhow::Error;
     fn try_from(d: Option<Vec<u8>>) -> Result<Self, Self::Error> {
         match d {
             Some(d) => {
@@ -17,8 +35,14 @@ impl TryFrom<Option<Vec<u8>>> for Address {
                 let port = u16::from_be_bytes([d[4], d[5]]);
                 Ok(Self { ip, port })
             }
-            None => Err("Address expected".into()),
+            None => Err(anyhow::anyhow!("Address expected")),
         }
+    }
+}
+
+impl From<Address> for Option<Vec<u8>> {
+    fn from(a: Address) -> Self {
+        Some(a.to_vec())
     }
 }
 

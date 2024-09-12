@@ -1,7 +1,4 @@
-use crate::{
-    config::{Config, Stun},
-    ClientResult,
-};
+use crate::{config::Config, ClientResult};
 use bytes::BytesMut;
 use roxi_lib::types::Address;
 use roxi_proto::{Message, MessageKind, MessageStatus};
@@ -34,46 +31,28 @@ impl Client {
     }
 
     pub async fn ping(&mut self) -> ClientResult<()> {
-        let msg = Message::new(
-            MessageKind::Ping,
-            MessageStatus::Pending,
-            self.config.remote_addr(),
-            None,
-        );
-        match self.send(msg).await {
-            Ok(Some(msg)) => {
-                tracing::info!("Successfully received ping response: {msg:?}");
-            }
-            Err(e) => {
-                tracing::error!("Could not ping server: {e}");
-            }
-            _ => {
-                tracing::error!("Received empty ping response from server");
-            }
-        }
+        let _msg = self
+            .send(Message::new(
+                MessageKind::Ping,
+                MessageStatus::Pending,
+                self.config.remote_addr(),
+                None,
+            ))
+            .await?;
 
         Ok(())
     }
 
     pub async fn authenticate(&mut self) -> ClientResult<()> {
         let data = self.config.shared_key().try_into()?;
-        let msg = Message::new(
-            MessageKind::AuthenticationRequest,
-            MessageStatus::Pending,
-            self.config.remote_addr(),
-            Some(data),
-        );
-        match self.send(msg).await {
-            Ok(Some(msg)) => {
-                tracing::info!("Successfully authenticated against server: {msg:?}");
-            }
-            Err(e) => {
-                tracing::error!("Could not authenticate against server: {e}");
-            }
-            _ => {
-                tracing::error!("Recevied empty authentication response from server");
-            }
-        }
+        let _msg = self
+            .send(Message::new(
+                MessageKind::AuthenticationRequest,
+                MessageStatus::Pending,
+                self.config.remote_addr(),
+                Some(data),
+            ))
+            .await?;
 
         Ok(())
     }
@@ -100,56 +79,57 @@ impl Client {
     }
 
     pub async fn request_stun_info(&mut self) -> ClientResult<()> {
-        let msg = Message::new(
-            MessageKind::StunInfoRequest,
-            MessageStatus::Pending,
-            self.config.remote_addr(),
-            None,
-        );
-
-        match self.send(msg).await {
-            Ok(Some(msg)) => {
-                tracing::info!("Successfully fetched STUN info: {msg:?}");
-                let stun_info = Stun::from(msg.sender_addr());
-                self.config.set_stun(stun_info);
-                // TODO: Save updated config here
-            }
-            Err(e) => {
-                tracing::error!("Could not fetch STUN info: {e}");
-            }
-            _ => {
-                tracing::error!("Received empty STUN info response from server");
-            }
-        }
+        let _msg = self
+            .send(Message::new(
+                MessageKind::StunInfoRequest,
+                MessageStatus::Pending,
+                self.config.remote_addr(),
+                None,
+            ))
+            .await?;
 
         Ok(())
     }
 
-    pub async fn request_gateway(&mut self) -> ClientResult<()> {
-        let msg = Message::new(
-            MessageKind::GatewayRequest,
-            MessageStatus::Pending,
-            self.config.remote_addr(),
-            None,
-        );
-        match self.send(msg).await {
-            Ok(Some(mut msg)) => {
-                tracing::info!("Successfully requested gateway: {msg:?}");
-                let _peer_addr = Address::try_from(msg.into_inner()).unwrap();
-            }
-            Err(e) => {
-                tracing::error!("Could not get gateway from server: {e}");
-            }
-            _ => {
-                tracing::error!("Received empty response for gateway request");
-            }
-        }
+    pub async fn request_gateway(&mut self) -> ClientResult<Option<Address>> {
+        let msg = self
+            .send(Message::new(
+                MessageKind::GatewayRequest,
+                MessageStatus::Pending,
+                self.config.remote_addr(),
+                None,
+            ))
+            .await?;
+
+        let data = msg.expect("Empty response").into_inner();
+        let addr = Address::try_from(data)?;
+
+        let _msg = self
+            .send(Message::new(
+                MessageKind::NATPunchRequest,
+                MessageStatus::Pending,
+                self.config.remote_addr(),
+                None,
+            ))
+            .await?;
+        Ok(Some(addr))
+    }
+
+    pub async fn setup_peer_tunnel(&mut self, addr: Address) -> ClientResult<()> {
+        let _msg = self
+            .send(Message::new(
+                MessageKind::PeerTunnelRequest,
+                MessageStatus::Pending,
+                self.config.remote_addr(),
+                addr.into(),
+            ))
+            .await?;
 
         Ok(())
     }
 
     async fn send(&mut self, m: Message) -> ClientResult<Option<Message>> {
-        tracing::info!("Sending message to server: {m:?}");
+        tracing::info!("Sending message: {m:?}");
         let data = m.serialize()?;
         tracing::info!("Sending {} bytes", data.len());
         self.tcp.write_all(&data).await?;
@@ -158,8 +138,18 @@ impl Client {
         if n > 0 {
             let data = buff[..n].to_vec();
             let msg = Message::deserialize(&data)?;
+            tracing::info!("Received response: {msg:?}");
+            match msg.status() {
+                MessageStatus::r#Ok | MessageStatus::Created => {
+                    tracing::info!("Recevied successful response");
+                }
+                _ => {
+                    tracing::warn!("Received non-success response");
+                }
+            }
             return Ok(Some(msg));
         }
+
         Ok(None)
     }
 }

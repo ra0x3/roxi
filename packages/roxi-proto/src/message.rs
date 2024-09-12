@@ -51,6 +51,10 @@ pub enum MessageKind {
     GatewayRequest = 10,
     GatewayResponse = 11,
     GenericErrorResponse = 12,
+    PeerTunnelRequest = 13,
+    PeerTunnelResponse = 14,
+    NATPunchRequest = 15,
+    NATPunchResponse = 16,
     Unknown,
 }
 
@@ -70,6 +74,10 @@ impl From<u16> for MessageKind {
             10 => MessageKind::GatewayRequest,
             11 => MessageKind::GatewayResponse,
             12 => MessageKind::GenericErrorResponse,
+            13 => MessageKind::PeerTunnelRequest,
+            14 => MessageKind::PeerTunnelResponse,
+            15 => MessageKind::NATPunchRequest,
+            16 => MessageKind::NATPunchResponse,
             _ => MessageKind::Unknown,
         }
     }

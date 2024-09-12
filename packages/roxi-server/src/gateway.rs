@@ -64,6 +64,52 @@ impl Gateway {
                 )
                 .await?;
             }
+            MessageKind::PeerTunnelRequest => {
+                self.client_streams
+                    .write()
+                    .await
+                    .insert(client_id.clone(), stream.clone());
+
+                self.send(
+                    &client_id,
+                    Message::new(
+                        MessageKind::PeerTunnelResponse,
+                        MessageStatus::r#Ok,
+                        self.config.stun_addr().expect("STUN address required"),
+                        None,
+                    ),
+                    stream.clone(),
+                )
+                .await?;
+            }
+            MessageKind::NATPunchRequest => {
+                if !self.client_streams.read().await.contains_key(&client_id) {
+                    tracing::error!("{client_id:?} not a recognized peer");
+                    self.send(
+                        &client_id,
+                        Message::new(
+                            MessageKind::NATPunchResponse,
+                            MessageStatus::Forbidden,
+                            self.config.stun_addr().expect("STUN address required"),
+                            None,
+                        ),
+                        stream.clone(),
+                    )
+                    .await?;
+                }
+
+                self.send(
+                    &client_id,
+                    Message::new(
+                        MessageKind::NATPunchResponse,
+                        MessageStatus::r#Ok,
+                        self.config.stun_addr().expect("STUN address required"),
+                        None,
+                    ),
+                    stream.clone(),
+                )
+                .await?;
+            }
             _ => {
                 self.send(
                     &client_id,

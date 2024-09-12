@@ -58,6 +58,7 @@ pub struct Config {
     server: Server,
     tun: Tun,
     auth: Auth,
+    path: String,
 }
 
 impl Config {

@@ -22,4 +22,7 @@ pub enum ClientError {
 
     #[error("From utf8 error: {0}")]
     FromUtf8(#[from] std::string::FromUtf8Error),
+
+    #[error("Anyhow error: {0}")]
+    Anyhow(#[from] anyhow::Error),
 }
