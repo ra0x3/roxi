@@ -13,6 +13,7 @@ pub type ServerResult<T> = core::result::Result<T, error::ServerError>;
 
 pub use config::Config;
 pub use error::ServerError;
+pub use gateway::Gateway;
 pub use ip::IpPoolManager;
 pub use protocol::Protocol;
 pub use server::Server;

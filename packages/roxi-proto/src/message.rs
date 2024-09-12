@@ -174,7 +174,10 @@ impl Message {
         sizebuff.copy_from_slice(&data[10..18]);
 
         let payload = match kind {
-            MessageKind::Ping | MessageKind::Pong => None,
+            MessageKind::Ping
+            | MessageKind::Pong
+            | MessageKind::StunInfoRequest
+            | MessageKind::AuthenticationResponse => None,
             _ => {
                 let n = usize::from_be_bytes(sizebuff);
                 let payload = data[18..18 + n].to_vec();

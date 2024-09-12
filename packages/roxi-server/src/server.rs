@@ -41,7 +41,7 @@ impl Server {
         })
     }
 
-    pub async fn handle_tcp(&self, mut stream: TcpStream) -> ServerResult<()> {
+    pub async fn handle_conn(&self, mut stream: TcpStream) -> ServerResult<()> {
         tracing::info!("Handling incoming tcp stream");
 
         let mut buff = vec![0u8; 1024];
@@ -97,7 +97,7 @@ impl Server {
                         MessageKind::AuthenticationResponse,
                         MessageStatus::r#Ok,
                         self.config.addr(),
-                        Some(vec![1]),
+                        None,
                     ),
                     stream.clone(),
                 )
@@ -195,7 +195,7 @@ impl Server {
     }
 
     pub async fn run(self: Arc<Self>) -> ServerResult<()> {
-        tracing::info!("TCP server listening at {}", self.config.interface());
+        tracing::info!("Roxi server listening at {}", self.config.interface());
 
         let server = Arc::clone(&self);
         tokio::spawn(async move {
@@ -209,7 +209,7 @@ impl Server {
             let server = Arc::clone(&self);
 
             tokio::spawn(async move {
-                if let Err(e) = server.handle_tcp(stream).await {
+                if let Err(e) = server.handle_conn(stream).await {
                     tracing::error!("Error handling client: {e}");
                 }
 
