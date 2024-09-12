@@ -49,6 +49,17 @@ impl Auth {
 pub struct Gateway {
     interface: Ipv4Addr,
     port: u32,
+    max_clients: u32,
+}
+
+impl Gateway {
+    pub fn addr(&self) -> String {
+        format!("{}:{}", self.interface, self.port)
+    }
+
+    pub fn max_clients(&self) -> u32 {
+        self.max_clients
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -94,6 +105,14 @@ impl Config {
 
     pub fn udp_bind(&self) -> String {
         format!("{}:{}", self.roxi_server.interface(), 59600)
+    }
+
+    pub fn gateway_addr(&self) -> String {
+        self.gateway.addr()
+    }
+
+    pub fn max_gateway_clients(&self) -> u32 {
+        self.gateway.max_clients()
     }
 
     pub fn save(&self, p: PathBuf) -> ClientResult<()> {

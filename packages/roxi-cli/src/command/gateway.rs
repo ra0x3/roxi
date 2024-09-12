@@ -1,6 +1,7 @@
 use clap::Parser;
+use roxi_client::Config;
 use roxi_lib::util::{init_logging, shutdown_signal_handler};
-use roxi_server::{Config, Gateway};
+use roxi_server::Gateway;
 use std::{path::PathBuf, sync::Arc};
 use tokio::{sync::broadcast, task::JoinSet};
 
