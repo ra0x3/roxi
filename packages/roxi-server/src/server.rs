@@ -1,6 +1,6 @@
 use crate::{config::Config, error::ServerError, session::SessionManager, ServerResult};
 use async_std::sync::Arc;
-use roxi_lib::types::{ClientId, SharedKey, StunAddressKind, StunInfo};
+use roxi_lib::types::{Address, ClientId, SharedKey, StunAddressKind, StunInfo};
 use roxi_proto::{Message, MessageKind, MessageStatus};
 use std::{
     collections::HashMap,
@@ -109,21 +109,58 @@ impl Server {
                     .insert(client_id, stream.clone());
             }
             MessageKind::StunInfoRequest => {
-                if !self.client_sessions.exists(&client_id).await {
-                    self.send(
-                        &client_id,
-                        Message::new(
-                            MessageKind::StunInfoResponse,
-                            MessageStatus::Unauthorized,
-                            self.config.addr(),
-                            None,
-                        ),
-                        stream,
-                    )
-                    .await?;
-                }
+                self.ensure_authenticated(
+                    &client_id,
+                    MessageKind::StunInfoResponse,
+                    stream,
+                )
+                .await?;
+            }
+            MessageKind::GatewayRequest => {
+                self.ensure_authenticated(
+                    &client_id,
+                    MessageKind::GatewayResponse,
+                    stream.clone(),
+                )
+                .await?;
+
+                // FIXME: Get a random peer that isn't this peer
+                // let peer_addr = self.client_sessions.get_peer_for_gateway().await;
+                let peer_addr = Address::from([192, 168, 1, 1, 16, 10]);
+                let peer_client = ClientId::from("192.168.1.1:1610");
+                let peer_stream = self
+                    .client_streams
+                    .read()
+                    .await
+                    .get(&peer_client)
+                    .unwrap()
+                    .clone();
+                self.send(
+                    &client_id,
+                    Message::new(
+                        MessageKind::GatewayResponse,
+                        MessageStatus::r#Ok,
+                        self.config.addr(),
+                        None,
+                    ),
+                    stream.clone(),
+                )
+                .await?;
+
+                self.send(
+                    &peer_client,
+                    Message::new(
+                        MessageKind::GatewayResponse,
+                        MessageStatus::r#Ok,
+                        self.config.addr(),
+                        peer_addr.into(),
+                    ),
+                    peer_stream.clone(),
+                )
+                .await?;
             }
             _ => {
+                // NOTE: Authorize these?
                 self.send(
                     &client_id,
                     Message::new(
@@ -139,6 +176,26 @@ impl Server {
             }
         }
 
+        Ok(())
+    }
+
+    async fn ensure_authenticated(
+        &self,
+        client_id: &ClientId,
+        kind: MessageKind,
+        stream: Arc<Mutex<TcpStream>>,
+    ) -> ServerResult<()> {
+        if !self.client_sessions.exists(&client_id).await {
+            tracing::error!("Unauthenticated client: {client_id:?}");
+            self.send(
+                &client_id,
+                Message::new(kind, MessageStatus::Unauthorized, self.config.addr(), None),
+                stream,
+            )
+            .await?;
+
+            return Err(ServerError::Unauthenticated);
+        }
         Ok(())
     }
 

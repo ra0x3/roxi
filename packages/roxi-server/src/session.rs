@@ -69,6 +69,10 @@ impl SessionManager {
         self.sessions.read().await.contains_key(client_id)
     }
 
+    pub async fn get_peer_for_gateway(&self) {
+        todo!()
+    }
+
     #[allow(unused)]
     pub async fn remove(&self, client_id: &ClientId) {
         self.sessions.write().await.remove(client_id);
