@@ -71,6 +71,9 @@ jobs:
 
   build-and-test:
     runs-on: ubuntu-latest
+    needs:
+      - cargo-clippy-all-features-all-targets
+      - cargo-clippy-no-default-features
     strategy:
       matrix:
         platform: [aarch64-apple-darwin, aarch64-unknown-linux-gnu, x86_64-unknown-linux-gnu]
@@ -81,6 +84,11 @@ jobs:
         with:
           toolchain: stable
           target: ${{ matrix.platform }}
+
+      - name: Install deps
+        run: |
+          sudo apt-get update && \
+            sudo apt-get install -y libssl-dev pkg-config
 
       - name: Build
         run: cargo build --target ${{ matrix.platform }} --release
