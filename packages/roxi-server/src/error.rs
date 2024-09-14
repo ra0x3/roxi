@@ -43,6 +43,9 @@ pub enum ServerError {
 
     #[error("Only Ipv4 is supported")]
     UnsupportedIpAddrType,
+
+    #[error("Toml de error: {0}")]
+    TomlDe(#[from] toml::de::Error),
 }
 
 impl From<ring::error::Unspecified> for ServerError {

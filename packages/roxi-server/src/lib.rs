@@ -8,6 +8,7 @@ pub(crate) mod protocol;
 pub(crate) mod server;
 pub(crate) mod session;
 pub(crate) mod tun;
+pub(crate) mod wireguard;
 
 pub type ServerResult<T> = core::result::Result<T, error::ServerError>;
 
