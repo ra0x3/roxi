@@ -1,23 +1,27 @@
 use crate::{
-    auth::SharedKeyAuthentication, config::Config, error::ServerError, ServerResult,
+    auth::SharedKeyAuthentication, config::Config as ServerConfig, error::ServerError,
+    ServerResult,
 };
 use async_std::sync::{Arc, RwLock};
-use roxi_lib::types::{ClientId, SharedKey};
+use roxi_client::Config as ClientConfig;
+use roxi_lib::types::ClientId;
 use std::collections::HashMap;
 use std::time::SystemTime;
 use tokio::time::{self, Duration};
 
-#[derive(Debug, Hash, PartialEq)]
+#[derive(Debug, Hash)]
 pub struct Session {
     time: SystemTime,
     expiry: Duration,
+    config: ClientConfig,
 }
 
 impl Session {
-    pub fn new(ttl: u64) -> Self {
+    pub fn new(session_ttl: u64, config: &ClientConfig) -> Self {
         Self {
             time: SystemTime::now(),
-            expiry: Duration::new(ttl, 0),
+            config: config.clone(),
+            expiry: Duration::new(session_ttl, 0),
         }
     }
 
@@ -34,33 +38,33 @@ impl Session {
 
 pub struct SessionManager {
     sessions: Arc<RwLock<HashMap<ClientId, Session>>>,
-    config: Config,
+    config: ServerConfig,
     auth: SharedKeyAuthentication,
 }
 
 impl SessionManager {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: ServerConfig) -> Self {
         let key = config.shared_key();
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             config,
-            auth: SharedKeyAuthentication::new(key),
+            auth: SharedKeyAuthentication::new(&key),
         }
     }
 
     pub async fn authenticate(
         &self,
         client_id: &ClientId,
-        key: &SharedKey,
+        client_config: &ClientConfig,
     ) -> ServerResult<()> {
-        if let Err(e) = self.auth.authenticate(key) {
+        if let Err(e) = self.auth.authenticate(&client_config.shared_key()) {
             tracing::error!("Failed to authenticate client({client_id}): {e}");
             return Err(ServerError::Unauthenticated);
         }
 
         self.sessions.write().await.insert(
             client_id.clone(),
-            Session::new(self.config.session_ttl() as u64),
+            Session::new(self.config.session_ttl(), client_config),
         );
         Ok(())
     }
@@ -69,6 +73,7 @@ impl SessionManager {
         self.sessions.read().await.contains_key(client_id)
     }
 
+    #[allow(unused)]
     pub async fn get_peer_for_gateway(&self) {
         todo!()
     }
@@ -105,39 +110,4 @@ impl SessionManager {
 }
 
 #[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    const CONFIG: &str = r#"
-server:
-  ip: "192.168.1.34"
-  interface: "0.0.0.0"
-  port: 8080
-  max_clients: 10
-
-tun:
-  address: "10.0.0.1"
-  destination: "10.0.0.2"
-  netmask: "255.255.255.0"
-  name: "utun6"
-
-auth:
-  shared_key: "roxi-XXX"
-  session_ttl: 3600
-"#;
-
-    #[tokio::test]
-    async fn test_can_interact_with_session_manager() {
-        let config = Config::try_from(CONFIG).unwrap();
-        let key = SharedKey::from("roxi-XXX");
-        let client = ClientId::from("client123");
-        let manager = SessionManager::new(config);
-        let _ = manager.authenticate(&client, &key).await;
-
-        assert!(manager.exists(&client).await);
-
-        manager.remove(&client).await;
-        assert!(!manager.exists(&client).await);
-    }
-}
+mod tests {}

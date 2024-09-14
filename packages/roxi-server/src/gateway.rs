@@ -1,7 +1,7 @@
 use crate::{error::ServerError, ServerResult};
 use async_std::sync::Arc;
 use roxi_client::Config;
-use roxi_lib::types::ClientId;
+use roxi_lib::types::{ClientId, InterfaceKind};
 use roxi_proto::{Message, MessageKind, MessageStatus};
 use std::collections::HashMap;
 use tokio::{
@@ -20,7 +20,7 @@ pub struct Gateway {
 
 impl Gateway {
     pub async fn new(config: Config) -> ServerResult<Self> {
-        let tcp = TcpListener::bind(config.gateway_addr()).await?;
+        let tcp = TcpListener::bind(config.gateway_addr(InterfaceKind::Tcp)).await?;
         let client_limit =
             Arc::new(Semaphore::new(config.max_gateway_clients() as usize));
 
@@ -142,7 +142,10 @@ impl Gateway {
     }
 
     pub async fn run(self: Arc<Self>) -> ServerResult<()> {
-        tracing::info!("Gateway server listening at {}", self.config.gateway_addr());
+        tracing::info!(
+            "Gateway server listening at {}",
+            self.config.gateway_addr(InterfaceKind::Tcp)
+        );
 
         loop {
             let (stream, _) = self.tcp.accept().await?;

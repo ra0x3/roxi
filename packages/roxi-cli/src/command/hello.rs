@@ -21,7 +21,7 @@ pub fn exec(args: Args) -> Result<()> {
 | _| `._____| \______/  /__/ \__\ |__|
 "#;
 
-        println!("{msg}");
+        println!("{msg}\n\nWelcome to the Roxi project! (>^‿^)>");
     }
     print_welcome_message();
     Ok(())

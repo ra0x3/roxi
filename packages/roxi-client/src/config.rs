@@ -1,5 +1,5 @@
 use crate::{error::ClientError, ClientResult};
-use roxi_lib::types::SharedKey;
+use roxi_lib::types::{InterfaceKind, SharedKey};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Stun {
     ip: Option<Ipv4Addr>,
     port: Option<u16>,
@@ -34,86 +34,116 @@ impl Stun {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Auth {
     shared_key: SharedKey,
 }
 
-impl Auth {
-    pub fn shared_key(&self) -> SharedKey {
-        self.shared_key.clone()
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Gateway {
     interface: Ipv4Addr,
-    port: u32,
-    max_clients: u32,
+    ip: Ipv4Addr,
+    tcp_port: u16,
+    udp_port: u16,
+    max_clients: u16,
 }
 
+// FIXME: Maybe bind these common methods with a tait?
 impl Gateway {
-    pub fn addr(&self) -> String {
-        format!("{}:{}", self.interface, self.port)
+    pub fn addr(&self, k: InterfaceKind) -> String {
+        match k {
+            InterfaceKind::Tcp => format!("{}:{}", self.interface, self.tcp_port),
+            InterfaceKind::Udp => format!("{}:{}", self.interface, self.udp_port),
+        }
     }
 
-    pub fn max_clients(&self) -> u32 {
-        self.max_clients
+    pub fn remote_addr(&self, k: InterfaceKind) -> String {
+        match k {
+            InterfaceKind::Tcp => format!("{}:{}", self.ip, self.tcp_port),
+            InterfaceKind::Udp => format!("{}:{}", self.ip, self.udp_port),
+        }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct RoxiServer {
     interface: Ipv4Addr,
     ip: Ipv4Addr,
-    port: u32,
+    tcp_port: u16,
+    udp_port: u16,
 }
 
 impl RoxiServer {
-    pub fn addr(&self) -> String {
-        format!("{}:{}", self.ip, self.port)
+    pub fn addr(&self, k: InterfaceKind) -> String {
+        match k {
+            InterfaceKind::Tcp => format!("{}:{}", self.interface, self.tcp_port),
+            InterfaceKind::Udp => format!("{}:{}", self.interface, self.udp_port),
+        }
     }
 
-    pub fn interface(&self) -> String {
-        self.interface.to_string()
+    pub fn remote_addr(&self, k: InterfaceKind) -> String {
+        match k {
+            InterfaceKind::Tcp => format!("{}:{}", self.ip, self.tcp_port),
+            InterfaceKind::Udp => format!("{}:{}", self.ip, self.udp_port),
+        }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config {
-    roxi_server: RoxiServer,
-    auth: Auth,
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct Network {
+    server: RoxiServer,
     gateway: Gateway,
     stun: Stun,
+    nat_punch_delay: u32,
+}
+
+impl Network {
+    pub fn set_stun(&mut self, stun: Stun) {
+        self.stun = stun;
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct Config {
+    auth: Auth,
     path: String,
+    network: Network,
 }
 
 impl Config {
     pub fn set_stun(&mut self, stun: Stun) {
-        self.stun = stun;
+        self.network.set_stun(stun);
     }
-    pub fn remote_addr(&self) -> String {
-        self.roxi_server.addr()
+
+    pub fn addr(&self, k: InterfaceKind) -> String {
+        self.network.server.addr(k)
+    }
+
+    pub fn remote_addr(&self, k: InterfaceKind) -> String {
+        self.network.server.remote_addr(k)
+    }
+
+    pub fn stun_addr(&self) -> anyhow::Result<String> {
+        match self.network.stun.addr() {
+            Some(addr) => Ok(addr),
+            None => Err(anyhow::anyhow!("STUN address expected")),
+        }
     }
 
     pub fn shared_key(&self) -> SharedKey {
-        self.auth.shared_key()
+        self.auth.shared_key.clone()
     }
 
-    pub fn stun_addr(&self) -> Option<String> {
-        self.stun.addr()
+    pub fn gateway_addr(&self, k: InterfaceKind) -> String {
+        self.network.gateway.addr(k)
     }
 
-    pub fn udp_bind(&self) -> String {
-        format!("{}:{}", self.roxi_server.interface(), 59600)
+    pub fn gateway_remote_addr(&self, k: InterfaceKind) -> String {
+        self.network.gateway.remote_addr(k)
     }
 
-    pub fn gateway_addr(&self) -> String {
-        self.gateway.addr()
-    }
-
-    pub fn max_gateway_clients(&self) -> u32 {
-        self.gateway.max_clients()
+    pub fn max_gateway_clients(&self) -> u16 {
+        self.network.gateway.max_clients
     }
 
     pub fn save(&self) -> ClientResult<()> {
@@ -121,6 +151,22 @@ impl Config {
         let mut f = File::create(&self.path)?;
         f.write_all(content.as_bytes())?;
         Ok(())
+    }
+}
+
+impl TryFrom<Vec<u8>> for Config {
+    type Error = serde_yaml::Error;
+    fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
+        let c: Config = serde_yaml::from_slice(&v)?;
+        Ok(c)
+    }
+}
+
+impl TryFrom<Config> for Vec<u8> {
+    type Error = serde_yaml::Error;
+    fn try_from(c: Config) -> Result<Self, Self::Error> {
+        let v = serde_yaml::to_string(&c)?;
+        Ok(v.into_bytes())
     }
 }
 

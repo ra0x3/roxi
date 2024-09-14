@@ -1,17 +1,46 @@
 # roxi
 
-## Commands
+<image src="#" height="200px" />
+
+## Commands List
 
 | Command   | Description                         | Implemented |
 |-----------|-------------------------------------|-------------|
 | `hello`   | Test hello command                  | ✔️           |
 | `serve`   | Start Roxi server                   | ✔️           |
-| `connect` | Connect to Roxi server              | ✔️           |
+| `connect` | Connect to Roxi server              |             |
 | `ping`    | Ping Roxi server                    | ✔️           |
 | `auth`    | Authenticate against Roxi server    | ✔️           |
 | `stun`    | Send public IP to STUN server       | ✔️           |
+| `gateway` | Start client gateway server         |             |
 
 ## Development
+
+### Commands
+
+Start development server
+
+```sh
+cargo run --bin roxi -- serve --config server.yaml
+```
+
+#### Ping
+
+```sh
+cargo run --bin roxi -- ping --config client.yaml
+```
+
+#### Auth
+
+```sh
+cargo run --bin roxi -- auth --config client.yaml
+```
+
+#### Stun
+
+```sh
+cargo run --bin roxi -- stun --config client.yaml
+```
 
 ### Testing TUN interface on Mac
 

@@ -1,18 +1,23 @@
 path: /Users/rashad/dev/repos/roxi/client.yaml
 
-roxi_server:
-  interface: "0.0.0.0"
-  ip: "192.168.1.34"
-  port: 8080
+network:
+  nat_punch_delay: 2
 
-stun:
-  ip: ~
-  port: ~
+  roxi_server:
+    interface: "0.0.0.0"
+    ip: "192.168.1.34"
+    tcp_port: 8080
+    udp_port: 56567
+
+  stun:
+    ip: ~
+    port: ~
+
+  gateway:
+    interface: "0.0.0.0"
+    tcp_port: 5555
+    udp_port: 56567
+    max_clients: 10
 
 auth:
   shared_key: "roxi-XXX"
-
-gateway:
-  interface: "0.0.0.0"
-  port: 5555
-  max_clients: 10

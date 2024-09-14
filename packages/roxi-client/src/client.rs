@@ -1,6 +1,6 @@
 use crate::{config::Config, ClientResult};
 use bytes::BytesMut;
-use roxi_lib::types::Address;
+use roxi_lib::types::{Address, InterfaceKind};
 use roxi_proto::{Message, MessageKind, MessageStatus};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -18,8 +18,8 @@ pub struct Client {
 
 impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
-        let tcp = TcpStream::connect(&config.remote_addr()).await?;
-        let udp = UdpSocket::bind(&config.udp_bind()).await?;
+        let tcp = TcpStream::connect(&config.addr(InterfaceKind::Tcp)).await?;
+        let udp = UdpSocket::bind(&config.addr(InterfaceKind::Udp)).await?;
         Ok(Self { config, tcp, udp })
     }
 
@@ -35,7 +35,7 @@ impl Client {
             .send(Message::new(
                 MessageKind::Ping,
                 MessageStatus::Pending,
-                self.config.remote_addr(),
+                self.config.stun_addr()?,
                 None,
             ))
             .await?;
@@ -44,12 +44,12 @@ impl Client {
     }
 
     pub async fn authenticate(&mut self) -> ClientResult<()> {
-        let data = self.config.shared_key().try_into()?;
+        let data = self.config.clone().try_into()?;
         let _msg = self
             .send(Message::new(
                 MessageKind::AuthenticationRequest,
                 MessageStatus::Pending,
-                self.config.remote_addr(),
+                self.config.stun_addr()?,
                 Some(data),
             ))
             .await?;
@@ -70,7 +70,7 @@ impl Client {
 
         tracing::info!("Sending info to STUN server");
         self.udp
-            .send_to(&request, self.config.remote_addr())
+            .send_to(&request, self.config.remote_addr(InterfaceKind::Udp))
             .await?;
 
         tracing::info!("Successfully sent info to STUN server");
@@ -83,7 +83,7 @@ impl Client {
             .send(Message::new(
                 MessageKind::StunInfoRequest,
                 MessageStatus::Pending,
-                self.config.remote_addr(),
+                self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
             .await?;
@@ -96,7 +96,7 @@ impl Client {
             .send(Message::new(
                 MessageKind::GatewayRequest,
                 MessageStatus::Pending,
-                self.config.remote_addr(),
+                self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
             .await?;
@@ -104,11 +104,12 @@ impl Client {
         let data = msg.expect("Empty response").into_inner();
         let addr = Address::try_from(data)?;
 
+        // Do the NAT punch
         let _msg = self
             .send(Message::new(
                 MessageKind::NATPunchRequest,
                 MessageStatus::Pending,
-                self.config.remote_addr(),
+                self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
             .await?;
@@ -120,7 +121,7 @@ impl Client {
             .send(Message::new(
                 MessageKind::PeerTunnelRequest,
                 MessageStatus::Pending,
-                self.config.remote_addr(),
+                self.config.remote_addr(InterfaceKind::Tcp),
                 addr.into(),
             ))
             .await?;
@@ -132,6 +133,7 @@ impl Client {
         tracing::info!("Sending message: {m:?}");
         let data = m.serialize()?;
         tracing::info!("Sending {} bytes", data.len());
+
         self.tcp.write_all(&data).await?;
         let mut buff = vec![0u8; 1024];
         let n = self.tcp.read(&mut buff).await?;

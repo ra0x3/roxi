@@ -1,6 +1,7 @@
 use crate::{config::Config, error::ServerError, session::SessionManager, ServerResult};
 use async_std::sync::Arc;
-use roxi_lib::types::{Address, ClientId, SharedKey, StunAddressKind, StunInfo};
+use roxi_client::Config as ClientConfig;
+use roxi_lib::types::{Address, ClientId, InterfaceKind, StunAddressKind, StunInfo};
 use roxi_proto::{Message, MessageKind, MessageStatus};
 use std::{
     collections::HashMap,
@@ -26,14 +27,10 @@ pub struct Server {
 
 impl Server {
     pub async fn new(config: Config) -> ServerResult<Self> {
-        let tcp = TcpListener::bind(config.addr()).await?;
-        let udp = UdpSocket::bind(config.addr()).await?;
-        let client_limit = Arc::new(Semaphore::new(config.max_clients() as usize));
-
         Ok(Self {
-            tcp,
-            udp,
-            client_limit,
+            tcp: TcpListener::bind(config.addr(InterfaceKind::Tcp)).await?,
+            udp: UdpSocket::bind(config.addr(InterfaceKind::Udp)).await?,
+            client_limit: Arc::new(Semaphore::new(config.max_clients().into())),
             config: config.clone(),
             client_streams: Arc::new(RwLock::new(HashMap::new())),
             client_sessions: SessionManager::new(config),
@@ -66,7 +63,7 @@ impl Server {
                     Message::new(
                         MessageKind::Pong,
                         MessageStatus::r#Ok,
-                        self.config.addr(),
+                        self.config.remote_addr(InterfaceKind::Tcp),
                         None,
                     ),
                     stream.clone(),
@@ -74,15 +71,16 @@ impl Server {
                 .await?;
             }
             MessageKind::AuthenticationRequest => {
-                let key = SharedKey::try_from(msg.data())?;
-                if let Err(_e) = self.client_sessions.authenticate(&client_id, &key).await
+                let config = ClientConfig::try_from(msg.data())?;
+                if let Err(_e) =
+                    self.client_sessions.authenticate(&client_id, &config).await
                 {
                     self.send(
                         &client_id,
                         Message::new(
                             MessageKind::AuthenticationResponse,
                             MessageStatus::Unauthorized,
-                            self.config.addr(),
+                            self.config.remote_addr(InterfaceKind::Tcp),
                             None,
                         ),
                         stream.clone(),
@@ -96,7 +94,7 @@ impl Server {
                     Message::new(
                         MessageKind::AuthenticationResponse,
                         MessageStatus::r#Ok,
-                        self.config.addr(),
+                        self.config.remote_addr(InterfaceKind::Tcp),
                         None,
                     ),
                     stream.clone(),
@@ -140,7 +138,7 @@ impl Server {
                     Message::new(
                         MessageKind::GatewayResponse,
                         MessageStatus::r#Ok,
-                        self.config.addr(),
+                        self.config.remote_addr(InterfaceKind::Tcp),
                         None,
                     ),
                     stream.clone(),
@@ -152,7 +150,7 @@ impl Server {
                     Message::new(
                         MessageKind::GatewayResponse,
                         MessageStatus::r#Ok,
-                        self.config.addr(),
+                        self.config.remote_addr(InterfaceKind::Tcp),
                         peer_addr.into(),
                     ),
                     peer_stream.clone(),
@@ -160,13 +158,12 @@ impl Server {
                 .await?;
             }
             _ => {
-                // NOTE: Authorize these?
                 self.send(
                     &client_id,
                     Message::new(
                         MessageKind::GenericErrorResponse,
                         MessageStatus::BadData,
-                        self.config.addr(),
+                        self.config.remote_addr(InterfaceKind::Tcp),
                         None,
                     ),
                     stream.clone(),
@@ -185,11 +182,16 @@ impl Server {
         kind: MessageKind,
         stream: Arc<Mutex<TcpStream>>,
     ) -> ServerResult<()> {
-        if !self.client_sessions.exists(&client_id).await {
+        if !self.client_sessions.exists(client_id).await {
             tracing::error!("Unauthenticated client: {client_id:?}");
             self.send(
-                &client_id,
-                Message::new(kind, MessageStatus::Unauthorized, self.config.addr(), None),
+                client_id,
+                Message::new(
+                    kind,
+                    MessageStatus::Unauthorized,
+                    self.config.remote_addr(InterfaceKind::Tcp),
+                    None,
+                ),
                 stream,
             )
             .await?;
@@ -237,7 +239,10 @@ impl Server {
     }
 
     pub async fn run_stun(self: Arc<Self>) -> ServerResult<()> {
-        tracing::info!("UDP server listening at {}", self.config.interface());
+        tracing::info!(
+            "UDP server listening at {}",
+            self.config.addr(InterfaceKind::Udp)
+        );
         let mut buff = [0u8; 1024];
 
         loop {
@@ -252,7 +257,10 @@ impl Server {
     }
 
     pub async fn run(self: Arc<Self>) -> ServerResult<()> {
-        tracing::info!("Roxi server listening at {}", self.config.interface());
+        tracing::info!(
+            "Roxi server listening at {}",
+            self.config.addr(InterfaceKind::Tcp)
+        );
 
         let server = Arc::clone(&self);
         tokio::spawn(async move {

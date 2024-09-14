@@ -6,8 +6,10 @@ pub struct SharedKeyAuthentication {
 }
 
 impl SharedKeyAuthentication {
-    pub fn new(shared_key: SharedKey) -> Self {
-        Self { shared_key }
+    pub fn new(shared_key: &SharedKey) -> Self {
+        Self {
+            shared_key: shared_key.clone(),
+        }
     }
     pub fn authenticate(&self, k: &SharedKey) -> ServerResult<()> {
         if k == &self.shared_key {

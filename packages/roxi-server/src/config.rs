@@ -1,5 +1,5 @@
 use crate::{error::ServerError, ServerResult};
-use roxi_lib::types::SharedKey;
+use roxi_lib::types::{InterfaceKind, SharedKey};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -18,68 +18,66 @@ pub struct Tun {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Auth {
     shared_key: SharedKey,
-    session_ttl: u32,
-}
-
-impl Auth {
-    pub fn shared_key(&self) -> SharedKey {
-        self.shared_key.clone()
-    }
-
-    pub fn session_ttl(&self) -> u32 {
-        self.session_ttl
-    }
+    session_ttl: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Server {
     interface: Ipv4Addr,
     ip: Ipv4Addr,
-    port: u16,
-    max_clients: u32,
+    tcp_port: u16,
+    udp_port: u16,
+    max_clients: u16,
 }
 
 impl Server {
-    pub fn addr(&self) -> String {
-        format!("{}:{}", self.ip, self.port)
+    pub fn addr(&self, k: InterfaceKind) -> String {
+        match k {
+            InterfaceKind::Tcp => format!("{}:{}", self.interface, self.tcp_port),
+            InterfaceKind::Udp => format!("{}:{}", self.interface, self.udp_port),
+        }
     }
 
-    pub fn interface(&self) -> String {
-        format!("{}:{}", self.interface, self.port)
-    }
-
-    pub fn max_clients(&self) -> u32 {
-        self.max_clients
+    pub fn remote_addr(&self, k: InterfaceKind) -> String {
+        match k {
+            InterfaceKind::Tcp => format!("{}:{}", self.ip, self.tcp_port),
+            InterfaceKind::Udp => format!("{}:{}", self.ip, self.udp_port),
+        }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Config {
+pub struct Network {
     server: Server,
     tun: Tun,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Config {
+    network: Network,
     auth: Auth,
     path: String,
 }
 
 impl Config {
-    pub fn interface(&self) -> String {
-        self.server.interface()
+    pub fn addr(&self, k: InterfaceKind) -> String {
+        self.network.server.addr(k)
     }
 
-    pub fn addr(&self) -> String {
-        self.server.addr()
+    pub fn remote_addr(&self, k: InterfaceKind) -> String {
+        self.network.server.remote_addr(k)
     }
 
-    pub fn max_clients(&self) -> u32 {
-        self.server.max_clients()
+    pub fn max_clients(&self) -> u16 {
+        self.network.server.max_clients
     }
 
     pub fn shared_key(&self) -> SharedKey {
-        self.auth.shared_key()
+        self.auth.shared_key.clone()
     }
 
-    pub fn session_ttl(&self) -> u32 {
-        self.auth.session_ttl()
+    pub fn session_ttl(&self) -> u64 {
+        self.auth.session_ttl
     }
 }
 

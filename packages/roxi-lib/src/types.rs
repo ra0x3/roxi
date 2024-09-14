@@ -3,6 +3,12 @@ use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpStream;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum InterfaceKind {
+    Tcp,
+    Udp,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Address {
     ip: Ipv4Addr,
     port: u16,
