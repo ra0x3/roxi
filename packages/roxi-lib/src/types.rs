@@ -32,6 +32,12 @@ impl Address {
     }
 }
 
+impl ToString for Address {
+    fn to_string(&self) -> String {
+        format!("{}:{}", self.ip, self.port)
+    }
+}
+
 impl TryFrom<Option<Vec<u8>>> for Address {
     type Error = anyhow::Error;
     fn try_from(d: Option<Vec<u8>>) -> Result<Self, Self::Error> {
@@ -112,6 +118,12 @@ impl TryFrom<&TcpStream> for ClientId {
 impl From<&SocketAddr> for ClientId {
     fn from(s: &SocketAddr) -> Self {
         Self::from(s.ip().to_string())
+    }
+}
+
+impl From<Address> for ClientId {
+    fn from(a: Address) -> Self {
+        Self(a.ip().to_string())
     }
 }
 

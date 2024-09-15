@@ -1,10 +1,13 @@
 use crate::{config::Config, ClientResult};
 use bytes::BytesMut;
-use roxi_lib::types::{Address, InterfaceKind};
+use roxi_lib::types::{Address, ClientId, InterfaceKind};
 use roxi_proto::{Message, MessageKind, MessageStatus};
+use std::{collections::HashMap, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpStream, UdpSocket},
+    sync::{Mutex, RwLock},
+    time::{sleep, Duration},
 };
 
 const STUN_BINDING_REQUEST_TYPE: u16 = 0x0001;
@@ -14,18 +17,28 @@ pub struct Client {
     config: Config,
     tcp: TcpStream,
     udp: UdpSocket,
+    peer_streams: Arc<RwLock<HashMap<ClientId, Arc<Mutex<TcpStream>>>>>,
 }
 
 impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
-        let tcp = TcpStream::connect(&config.addr(InterfaceKind::Tcp)).await?;
-        let udp = UdpSocket::bind(&config.addr(InterfaceKind::Udp)).await?;
-        Ok(Self { config, tcp, udp })
+        let tcp = TcpStream::connect(&config.remote_addr(InterfaceKind::Tcp)).await?;
+        let udp = UdpSocket::bind(&config.remote_addr(InterfaceKind::Udp)).await?;
+        let peer_streams = Arc::new(RwLock::new(HashMap::new()));
+        Ok(Self {
+            config,
+            tcp,
+            udp,
+            peer_streams,
+        })
     }
 
     pub async fn connect(&mut self) -> ClientResult<()> {
         self.authenticate().await?;
         self.stun().await?;
+        if let Some(addr) = self.request_gateway().await? {
+            self.nat_punch(addr).await?;
+        }
 
         Ok(())
     }
@@ -104,16 +117,54 @@ impl Client {
         let data = msg.expect("Empty response").into_inner();
         let addr = Address::try_from(data)?;
 
-        // Do the NAT punch
-        let _msg = self
-            .send(Message::new(
-                MessageKind::NATPunchRequest,
-                MessageStatus::Pending,
-                self.config.remote_addr(InterfaceKind::Tcp),
-                None,
-            ))
-            .await?;
         Ok(Some(addr))
+    }
+
+    async fn nat_punch(&mut self, addr: Address) -> ClientResult<()> {
+        tracing::info!("Attempting NAT punch to {addr:?}");
+
+        // FIXME: What is the timeout on this?
+        match TcpStream::connect(&addr.to_string()).await {
+            Ok(stream) => {
+                tracing::info!(
+                    "NAT punch received response. Connection to {addr:?} is open!"
+                );
+                self.peer_streams
+                    .write()
+                    .await
+                    .insert(ClientId::from(addr), Arc::new(Mutex::new(stream)));
+            }
+            Err(e) => {
+                tracing::info!("NAT punch failed. Will try again: {e}");
+                let max_attempts = self.config.nat_punch_attempts();
+                let mut attempts = 0;
+                while attempts < max_attempts {
+                    if let Err(e) = TcpStream::connect(&addr.to_string()).await {
+                        tracing::warn!(
+                            "NAT punch attempt {}/{} failed: {}",
+                            attempts,
+                            attempts + 1,
+                            e
+                        );
+                        attempts += 1;
+                    }
+                }
+
+                if attempts == max_attempts {
+                    tracing::error!("NAT punch max attempts reached");
+                    return Ok(());
+                }
+            }
+        }
+
+        tracing::info!("NAT punch attempt(s) finished.");
+        sleep(Duration::from_secs(self.config.nat_punch_delay().into())).await;
+        Ok(())
+    }
+
+    #[allow(unused)]
+    async fn request_tunnel_info(&mut self) -> ClientResult<()> {
+        Ok(())
     }
 
     pub async fn setup_peer_tunnel(&mut self, addr: Address) -> ClientResult<()> {

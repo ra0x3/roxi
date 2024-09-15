@@ -9,6 +9,12 @@ use std::{
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct Ports {
+    tcp: u16,
+    udp: u16,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Stun {
     ip: Option<Ipv4Addr>,
     port: Option<u16>,
@@ -40,11 +46,16 @@ pub struct Auth {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct Nat {
+    attempts: u8,
+    delay: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Gateway {
     interface: Ipv4Addr,
     ip: Ipv4Addr,
-    tcp_port: u16,
-    udp_port: u16,
+    ports: Ports,
     max_clients: u16,
 }
 
@@ -52,15 +63,15 @@ pub struct Gateway {
 impl Gateway {
     pub fn addr(&self, k: InterfaceKind) -> String {
         match k {
-            InterfaceKind::Tcp => format!("{}:{}", self.interface, self.tcp_port),
-            InterfaceKind::Udp => format!("{}:{}", self.interface, self.udp_port),
+            InterfaceKind::Tcp => format!("{}:{}", self.interface, self.ports.tcp),
+            InterfaceKind::Udp => format!("{}:{}", self.interface, self.ports.udp),
         }
     }
 
     pub fn remote_addr(&self, k: InterfaceKind) -> String {
         match k {
-            InterfaceKind::Tcp => format!("{}:{}", self.ip, self.tcp_port),
-            InterfaceKind::Udp => format!("{}:{}", self.ip, self.udp_port),
+            InterfaceKind::Tcp => format!("{}:{}", self.ip, self.ports.tcp),
+            InterfaceKind::Udp => format!("{}:{}", self.ip, self.ports.udp),
         }
     }
 }
@@ -69,22 +80,21 @@ impl Gateway {
 pub struct RoxiServer {
     interface: Ipv4Addr,
     ip: Ipv4Addr,
-    tcp_port: u16,
-    udp_port: u16,
+    ports: Ports,
 }
 
 impl RoxiServer {
     pub fn addr(&self, k: InterfaceKind) -> String {
         match k {
-            InterfaceKind::Tcp => format!("{}:{}", self.interface, self.tcp_port),
-            InterfaceKind::Udp => format!("{}:{}", self.interface, self.udp_port),
+            InterfaceKind::Tcp => format!("{}:{}", self.interface, self.ports.tcp),
+            InterfaceKind::Udp => format!("{}:{}", self.interface, self.ports.udp),
         }
     }
 
     pub fn remote_addr(&self, k: InterfaceKind) -> String {
         match k {
-            InterfaceKind::Tcp => format!("{}:{}", self.ip, self.tcp_port),
-            InterfaceKind::Udp => format!("{}:{}", self.ip, self.udp_port),
+            InterfaceKind::Tcp => format!("{}:{}", self.ip, self.ports.tcp),
+            InterfaceKind::Udp => format!("{}:{}", self.ip, self.ports.udp),
         }
     }
 }
@@ -94,7 +104,8 @@ pub struct Network {
     server: RoxiServer,
     gateway: Gateway,
     stun: Stun,
-    nat_punch_delay: u32,
+    wireguard_config: PathBuf,
+    nat: Nat,
 }
 
 impl Network {
@@ -106,7 +117,7 @@ impl Network {
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Config {
     auth: Auth,
-    path: String,
+    path: PathBuf,
     network: Network,
 }
 
@@ -144,6 +155,18 @@ impl Config {
 
     pub fn max_gateway_clients(&self) -> u16 {
         self.network.gateway.max_clients
+    }
+
+    pub fn wireguard_config(&self) -> &PathBuf {
+        &self.network.wireguard_config
+    }
+
+    pub fn nat_punch_delay(&self) -> u8 {
+        self.network.nat.delay
+    }
+
+    pub fn nat_punch_attempts(&self) -> u8 {
+        self.network.nat.attempts
     }
 
     pub fn save(&self) -> ClientResult<()> {

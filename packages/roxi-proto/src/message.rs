@@ -55,6 +55,8 @@ pub enum MessageKind {
     PeerTunnelResponse = 14,
     NATPunchRequest = 15,
     NATPunchResponse = 16,
+    PeerTunnelInitRequest = 17,
+    PeerTunnelInitResponse = 18,
     Unknown,
 }
 
@@ -78,6 +80,8 @@ impl From<u16> for MessageKind {
             14 => MessageKind::PeerTunnelResponse,
             15 => MessageKind::NATPunchRequest,
             16 => MessageKind::NATPunchResponse,
+            17 => MessageKind::PeerTunnelInitRequest,
+            18 => MessageKind::PeerTunnelInitResponse,
             _ => MessageKind::Unknown,
         }
     }

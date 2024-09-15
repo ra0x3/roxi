@@ -7,6 +7,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct Ports {
+    tcp: u16,
+    udp: u16,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Tun {
     address: Ipv4Addr,
@@ -25,23 +31,22 @@ pub struct Auth {
 pub struct Server {
     interface: Ipv4Addr,
     ip: Ipv4Addr,
-    tcp_port: u16,
-    udp_port: u16,
+    ports: Ports,
     max_clients: u16,
 }
 
 impl Server {
     pub fn addr(&self, k: InterfaceKind) -> String {
         match k {
-            InterfaceKind::Tcp => format!("{}:{}", self.interface, self.tcp_port),
-            InterfaceKind::Udp => format!("{}:{}", self.interface, self.udp_port),
+            InterfaceKind::Tcp => format!("{}:{}", self.interface, self.ports.tcp),
+            InterfaceKind::Udp => format!("{}:{}", self.interface, self.ports.udp),
         }
     }
 
     pub fn remote_addr(&self, k: InterfaceKind) -> String {
         match k {
-            InterfaceKind::Tcp => format!("{}:{}", self.ip, self.tcp_port),
-            InterfaceKind::Udp => format!("{}:{}", self.ip, self.udp_port),
+            InterfaceKind::Tcp => format!("{}:{}", self.ip, self.ports.tcp),
+            InterfaceKind::Udp => format!("{}:{}", self.ip, self.ports.udp),
         }
     }
 }
@@ -50,13 +55,14 @@ impl Server {
 pub struct Network {
     server: Server,
     tun: Tun,
+    wireguard_config: PathBuf,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     network: Network,
     auth: Auth,
-    path: String,
+    path: PathBuf,
 }
 
 impl Config {
@@ -78,6 +84,10 @@ impl Config {
 
     pub fn session_ttl(&self) -> u64 {
         self.auth.session_ttl
+    }
+
+    pub fn wireguard_config(&self) -> &PathBuf {
+        &self.network.wireguard_config
     }
 }
 
