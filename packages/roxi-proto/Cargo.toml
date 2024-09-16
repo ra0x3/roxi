@@ -14,7 +14,6 @@ description = "Roxi Server"
 async-std = { workspace = true }
 bincode = { version = "1" }
 boringtun = { version = "0.5" }
-libp2p = { version = "0.52" }
 ring = { version = "0.17" }
 roxi-lib = { path = "../roxi-lib" }
 serde = { workspace = true }

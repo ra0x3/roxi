@@ -30,7 +30,7 @@ edition = "2021"
 homepage = "https://roxi.net"
 license = "Apache-2.0"
 repository = "https://github.com/ra0x3/roxi"
-rust-version = "1.78.0"
+rust-version = "1.81.0"
 version = "0.1.0"
 
 [workspace.dependencies]
