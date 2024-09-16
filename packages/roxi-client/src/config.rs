@@ -77,13 +77,13 @@ impl Gateway {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
-pub struct RoxiServer {
+pub struct Server {
     interface: Ipv4Addr,
     ip: Ipv4Addr,
     ports: Ports,
 }
 
-impl RoxiServer {
+impl Server {
     pub fn addr(&self, k: InterfaceKind) -> String {
         match k {
             InterfaceKind::Tcp => format!("{}:{}", self.interface, self.ports.tcp),
@@ -101,7 +101,7 @@ impl RoxiServer {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Network {
-    server: RoxiServer,
+    server: Server,
     gateway: Gateway,
     stun: Stun,
     wireguard_config: PathBuf,

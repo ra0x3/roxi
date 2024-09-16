@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+    fmt,
+    net::{Ipv4Addr, SocketAddr},
+};
 use tokio::net::TcpStream;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -32,9 +35,9 @@ impl Address {
     }
 }
 
-impl ToString for Address {
-    fn to_string(&self) -> String {
-        format!("{}:{}", self.ip, self.port)
+impl std::fmt::Display for Address {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.ip, self.port)
     }
 }
 

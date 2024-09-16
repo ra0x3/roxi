@@ -48,7 +48,7 @@ impl Client {
             .send(Message::new(
                 MessageKind::Ping,
                 MessageStatus::Pending,
-                self.config.stun_addr()?,
+                self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
             .await?;
@@ -62,7 +62,7 @@ impl Client {
             .send(Message::new(
                 MessageKind::AuthenticationRequest,
                 MessageStatus::Pending,
-                self.config.stun_addr()?,
+                self.config.remote_addr(InterfaceKind::Tcp),
                 Some(data),
             ))
             .await?;
