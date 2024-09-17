@@ -3309,6 +3309,12 @@ dependencies = [
 [[package]]
 name = "roxi-crypto"
 version = "0.1.0"
+dependencies = [
+ "base64 0.13.1",
+ "ring 0.17.8",
+ "serde",
+ "thiserror",
+]
 
 [[package]]
 name = "roxi-lib"
@@ -3332,12 +3338,14 @@ dependencies = [
  "bincode",
  "boringtun",
  "ring 0.17.8",
+ "roxi-crypto",
  "roxi-lib",
  "serde",
  "strum",
  "strum_macros 0.26.4",
  "thiserror",
  "tokio",
+ "toml 0.8.19",
  "tracing",
  "tun",
 ]
@@ -3356,7 +3364,6 @@ dependencies = [
  "serde_yaml",
  "thiserror",
  "tokio",
- "toml 0.8.19",
  "tracing",
  "tun",
 ]

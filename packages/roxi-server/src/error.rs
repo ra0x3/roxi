@@ -14,9 +14,6 @@ pub enum ServerError {
     #[error("No IP addresses available")]
     NoIpAddrAvailable,
 
-    #[error("Unspecified ring error")]
-    Unspecified,
-
     #[error("Tun error: {0}")]
     Tun(#[from] tun::Error),
 
@@ -43,13 +40,4 @@ pub enum ServerError {
 
     #[error("Only Ipv4 is supported")]
     UnsupportedIpAddrType,
-
-    #[error("Toml de error: {0}")]
-    TomlDe(#[from] toml::de::Error),
-}
-
-impl From<ring::error::Unspecified> for ServerError {
-    fn from(_: ring::error::Unspecified) -> Self {
-        ServerError::Unspecified
-    }
 }
