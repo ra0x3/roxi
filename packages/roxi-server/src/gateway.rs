@@ -82,6 +82,12 @@ impl Gateway {
                 )
                 .await?;
             }
+            MessageKind::PeerTunnelInitRequest => {
+                // TODO: Send PeerTunnelInitResponse that includes:
+                // 1. This gateway's IP
+                // 2. This gateway's public key
+                // 3. Additional config options
+            }
             MessageKind::NATPunchRequest => {
                 if !self.client_streams.read().await.contains_key(&client_id) {
                     tracing::error!("{client_id:?} not a recognized peer");

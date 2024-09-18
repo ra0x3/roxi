@@ -7,6 +7,10 @@ pub type ProtoResult<T> = core::result::Result<T, error::ProtoError>;
 
 pub use error::ProtoError;
 pub use message::{Message, MessageKind, MessageStatus};
+pub use wireguard::{
+    WireGuardConfig, WireGuardConfigBuilder, WireGuardKey, WireGuardKeyPair,
+    WireGuardPeer,
+};
 
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
 

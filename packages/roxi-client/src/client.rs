@@ -1,12 +1,15 @@
 use crate::{config::Config, ClientResult};
 use bytes::BytesMut;
 use roxi_lib::types::{Address, ClientId, InterfaceKind};
-use roxi_proto::{Message, MessageKind, MessageStatus};
-use std::{collections::HashMap, sync::Arc};
+use roxi_proto::{
+    Message, MessageKind, MessageStatus, WireGuardConfig, WireGuardConfigBuilder,
+    WireGuardKey, WireGuardPeer,
+};
+use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpStream, UdpSocket},
-    sync::{Mutex, RwLock},
+    sync::Mutex,
     time::{sleep, Duration},
 };
 
@@ -17,19 +20,16 @@ pub struct Client {
     config: Config,
     tcp: TcpStream,
     udp: UdpSocket,
-    peer_streams: Arc<RwLock<HashMap<ClientId, Arc<Mutex<TcpStream>>>>>,
+    peer_stream: Option<(ClientId, Address, Arc<Mutex<TcpStream>>)>,
 }
 
 impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
-        let tcp = TcpStream::connect(&config.remote_addr(InterfaceKind::Tcp)).await?;
-        let udp = UdpSocket::bind(&config.remote_addr(InterfaceKind::Udp)).await?;
-        let peer_streams = Arc::new(RwLock::new(HashMap::new()));
         Ok(Self {
-            config,
-            tcp,
-            udp,
-            peer_streams,
+            config: config.clone(),
+            tcp: TcpStream::connect(&config.remote_addr(InterfaceKind::Tcp)).await?,
+            udp: UdpSocket::bind(&config.remote_addr(InterfaceKind::Udp)).await?,
+            peer_stream: None,
         })
     }
 
@@ -129,10 +129,8 @@ impl Client {
                 tracing::info!(
                     "NAT punch received response. Connection to {addr:?} is open!"
                 );
-                self.peer_streams
-                    .write()
-                    .await
-                    .insert(ClientId::from(addr), Arc::new(Mutex::new(stream)));
+                let client_id = ClientId::from(addr.clone());
+                self.peer_stream = Some((client_id, addr, Arc::new(Mutex::new(stream))));
             }
             Err(e) => {
                 tracing::info!("NAT punch failed. Will try again: {e}");
@@ -164,6 +162,30 @@ impl Client {
 
     #[allow(unused)]
     async fn request_tunnel_info(&mut self) -> ClientResult<()> {
+        let addr = "0.0.0.0".parse()?;
+        let port = 12345;
+        let dns = "1.1.1.1".parse()?;
+
+        // TODO: This info comes from the peer's PeerTunnelInitResponse
+        let pubkey = WireGuardKey::from_public("12345".to_string());
+        let endpoint = None;
+        let allowed_ips = Vec::new();
+        let persistent_keepalive = 1;
+
+        let peer = WireGuardPeer::new(
+            Some(pubkey),
+            allowed_ips,
+            endpoint,
+            Some(persistent_keepalive),
+        );
+        let config: WireGuardConfig = WireGuardConfigBuilder::builder()
+            .private_key()
+            .address(addr)
+            .port(port)
+            .dns(dns)
+            .peer(peer)
+            .build();
+
         Ok(())
     }
 

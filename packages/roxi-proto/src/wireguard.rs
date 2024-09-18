@@ -77,6 +77,22 @@ pub struct WireGuardPeer {
     persistent_keepalive: Option<u16>,
 }
 
+impl WireGuardPeer {
+    pub fn new(
+        public_key: Option<WireGuardKey>,
+        allowed_ips: Vec<IpAddr>,
+        endpoint: Option<String>,
+        persistent_keepalive: Option<u16>,
+    ) -> Self {
+        Self {
+            public_key,
+            allowed_ips,
+            endpoint,
+            persistent_keepalive,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WireGuardConfig {
     interface: WireGuardInterface,
@@ -93,43 +109,36 @@ pub struct WireGuardConfigBuilder {
 }
 
 impl WireGuardConfigBuilder {
-    #[allow(unused)]
     pub fn builder() -> Self {
         Self::default()
     }
 
-    #[allow(unused)]
     pub fn private_key(mut self) -> Self {
         let pair = command::wireguard_keypair().expect("Failed to generate WG keypair");
         self.private_key = Some(pair.privkey());
         self
     }
 
-    #[allow(unused)]
     pub fn address(mut self, address: IpAddr) -> Self {
         self.address = Some(address);
         self
     }
 
-    #[allow(unused)]
-    pub fn listen_port(mut self, port: u16) -> Self {
+    pub fn port(mut self, port: u16) -> Self {
         self.port = Some(port);
         self
     }
 
-    #[allow(unused)]
     pub fn dns(mut self, dns: IpAddr) -> Self {
         self.dns = Some(dns);
         self
     }
 
-    #[allow(unused)]
     pub fn peer(mut self, peer: WireGuardPeer) -> Self {
         self.peers.push(peer);
         self
     }
 
-    #[allow(unused)]
     pub fn build(self) -> WireGuardConfig {
         WireGuardConfig {
             interface: WireGuardInterface {
