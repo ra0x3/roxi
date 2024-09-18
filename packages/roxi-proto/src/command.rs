@@ -9,6 +9,30 @@ use std::{
     process::{Command, Stdio},
 };
 
+pub fn reload_wireguard(interface: &str) -> io::Result<()> {
+    tracing::info!("Reloading WireGuard on interface: {interface}");
+    let output = Command::new("wg-quick")
+        .arg("down")
+        .arg(interface)
+        .output()?;
+
+    if !output.status.success() {
+        tracing::error!("Failed to bring down WireGuard interface: {interface}");
+        io::stdout().write_all(&output.stderr)?;
+    }
+
+    let output = Command::new("wg-quick").arg("up").arg(interface).output()?;
+
+    if !output.status.success() {
+        tracing::error!("Failed to bring up WireGuard interface: {interface}");
+        io::stdout().write_all(&output.stderr)?;
+    }
+
+    tracing::info!("WireGuard reloaded successfully on interface: {interface}");
+
+    Ok(())
+}
+
 pub fn wireguard_keypair() -> ProtoResult<WireGuardKeyPair> {
     let privkey = Command::new("wg").arg("genkey").output()?;
     let privkey = String::from_utf8(privkey.stdout)

@@ -1,6 +1,9 @@
 use clap::Parser;
 use roxi_client::Config;
-use roxi_lib::util::{init_logging, shutdown_signal_handler};
+use roxi_lib::{
+    constant,
+    util::{init_logging, shutdown_signal_handler},
+};
 use roxi_server::Gateway;
 use std::{path::PathBuf, sync::Arc};
 use tokio::{sync::broadcast, task::JoinSet};
@@ -11,6 +14,10 @@ pub struct Args {
     /// Config file.
     #[clap(short, long, help = "Config file.")]
     pub config: PathBuf,
+
+    /// WireGuard interface
+    #[clap(short, long, default_value = constant::WIREGUARD_INTERFACE, help = "WireGuard interface.")]
+    pub interface: String,
 }
 
 pub async fn exec(args: Args) -> anyhow::Result<()> {
