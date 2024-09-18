@@ -22,6 +22,9 @@ pub enum ProtoError {
 
     #[error("Unspecified ring error")]
     Unspecified,
+
+    #[error("Toml ser error: {0}")]
+    TomlSer(#[from] toml::ser::Error),
 }
 
 impl From<ring::error::Unspecified> for ProtoError {

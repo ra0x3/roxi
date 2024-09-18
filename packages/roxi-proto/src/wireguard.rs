@@ -1,7 +1,8 @@
 use crate::{command, ProtoError, ProtoResult};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs,
+    fs::{self, File},
+    io::Write,
     net::IpAddr,
     path::{Path, PathBuf},
 };
@@ -31,6 +32,18 @@ impl WireGuardKey {
             kind: WireGuardKeyKind::Private,
             key,
         }
+    }
+
+    pub fn as_bytes(&mut self) -> &[u8] {
+        self.key.as_bytes()
+    }
+}
+
+impl TryFrom<&PathBuf> for WireGuardKey {
+    type Error = ProtoError;
+    fn try_from(p: &PathBuf) -> ProtoResult<Self> {
+        let k = command::cat_wireguard_key(p)?;
+        Ok(k)
     }
 }
 
@@ -97,6 +110,19 @@ impl WireGuardPeer {
 pub struct WireGuardConfig {
     interface: WireGuardInterface,
     peers: Vec<WireGuardPeer>,
+}
+
+impl WireGuardConfig {
+    pub fn add_peer(&mut self, p: WireGuardPeer) {
+        self.peers.push(p)
+    }
+
+    pub fn save<P: AsRef<Path>>(&self, p: P) -> ProtoResult<()> {
+        let content = toml::to_string(&self)?;
+        let mut f = File::create(&p)?;
+        f.write_all(content.as_bytes())?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

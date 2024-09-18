@@ -2,7 +2,7 @@ use crate::{error::ServerError, ServerResult};
 use async_std::sync::Arc;
 use roxi_client::Config;
 use roxi_lib::types::{ClientId, InterfaceKind};
-use roxi_proto::{Message, MessageKind, MessageStatus};
+use roxi_proto::{Message, MessageKind, MessageStatus, WireGuardConfig, WireGuardPeer};
 use std::collections::HashMap;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -14,6 +14,7 @@ pub struct Gateway {
     tcp: TcpListener,
     client_limit: Arc<Semaphore>,
     config: Config,
+    wireguard_config: Arc<Mutex<WireGuardConfig>>,
     #[allow(unused)]
     client_streams: Arc<RwLock<HashMap<ClientId, Arc<Mutex<TcpStream>>>>>,
 }
@@ -28,6 +29,7 @@ impl Gateway {
             tcp,
             client_limit,
             config: config.clone(),
+            wireguard_config: Arc::new(Mutex::new(config.wireguard_config()?)),
             client_streams: Arc::new(RwLock::new(HashMap::new())),
         })
     }
@@ -83,10 +85,37 @@ impl Gateway {
                 .await?;
             }
             MessageKind::PeerTunnelInitRequest => {
-                // TODO: Send PeerTunnelInitResponse that includes:
-                // 1. This gateway's IP
-                // 2. This gateway's public key
-                // 3. Additional config options
+                let peer: WireGuardPeer = bincode::deserialize(&msg.data())?;
+                self.wireguard_config.lock().await.add_peer(peer);
+
+                // TODO: Save new config
+
+                let pubkey = self
+                    .config
+                    .wireguard_pubkey()
+                    .expect("Failed to generate WireGuard public key");
+
+                let allowed_ips = Vec::new();
+                let endpoint = None;
+                let persistent_keepalive = 1;
+                let data = bincode::serialize(&WireGuardPeer::new(
+                    Some(pubkey),
+                    allowed_ips,
+                    endpoint,
+                    Some(persistent_keepalive),
+                ))?;
+
+                self.send(
+                    &client_id,
+                    Message::new(
+                        MessageKind::PeerTunnelInitResponse,
+                        MessageStatus::r#Ok,
+                        self.config.stun_addr().expect("STUN address required"),
+                        Some(data),
+                    ),
+                    stream.clone(),
+                )
+                .await?;
             }
             MessageKind::NATPunchRequest => {
                 if !self.client_streams.read().await.contains_key(&client_id) {

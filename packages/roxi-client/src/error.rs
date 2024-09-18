@@ -25,4 +25,7 @@ pub enum ClientError {
 
     #[error("Anyhow error: {0}")]
     Anyhow(#[from] anyhow::Error),
+
+    #[error("Bincode error: {0}")]
+    Bincode(#[from] bincode::Error),
 }

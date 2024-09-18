@@ -12,6 +12,7 @@ description = "Roxi Server"
 
 [dependencies]
 async-std = { workspace = true }
+bincode = { workspace = true }
 bytes = { version = "1" }
 ring = { version = "0.17" }
 roxi-client = { path = "../roxi-client" }

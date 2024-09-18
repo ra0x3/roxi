@@ -1,4 +1,4 @@
-pub(crate) mod command;
+pub mod command;
 pub(crate) mod error;
 pub(crate) mod message;
 pub(crate) mod wireguard;

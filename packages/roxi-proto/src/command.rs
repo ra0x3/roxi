@@ -1,9 +1,11 @@
 use crate::{
     wireguard::{WireGuardKey, WireGuardKeyPair},
-    ProtoResult,
+    ProtoError, ProtoResult,
 };
 use std::{
-    io::Write,
+    fs::File,
+    io::{self, Read, Write},
+    path::Path,
     process::{Command, Stdio},
 };
 
@@ -29,4 +31,44 @@ pub fn wireguard_keypair() -> ProtoResult<WireGuardKeyPair> {
     let privkey = WireGuardKey::from_private(privkey);
 
     Ok(WireGuardKeyPair::new(pubkey, privkey))
+}
+
+pub fn derive_wireguard_pubkey(privkey: &mut WireGuardKey) -> ProtoResult<WireGuardKey> {
+    let mut output = Command::new("wg")
+        .arg("pubkey")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    if let Some(stdin) = output.stdin.as_mut() {
+        let _ = stdin.write_all(privkey.as_bytes());
+    }
+
+    let output = output.wait_with_output()?;
+    if !output.status.success() {
+        tracing::error!(
+            "Failed to generate public key: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return Err(ProtoError::Io(io::Error::new(
+            io::ErrorKind::Other,
+            "Failed to generate public key",
+        )));
+    }
+
+    let pubkey = String::from_utf8(output.stdout)?.trim().to_string();
+
+    Ok(WireGuardKey::from_public(pubkey))
+}
+
+pub fn cat_wireguard_key<P: AsRef<Path>>(p: P) -> ProtoResult<WireGuardKey> {
+    let p = p.as_ref();
+    let mut f = File::open(p)?;
+    let mut content = String::new();
+    f.read_to_string(&mut content)?;
+    let key = content.trim().to_string();
+    if p.ends_with("publickey") {
+        return Ok(WireGuardKey::from_public(key));
+    }
+    Ok(WireGuardKey::from_private(key))
 }

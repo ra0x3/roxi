@@ -24,7 +24,10 @@ network:
       udp: 56567
     max_clients: 10
 
-  wireguard_config: /opt/homebrew/etc/wireguard/wg0.conf
+  wireguard:
+    config: /opt/homebrew/etc/wireguard/wg0.conf
+    public_key: /etc/wireguard/publickey
+    private_key: /etc/wireguard/privatekey
 
 auth:
   shared_key: "roxi-XXX"

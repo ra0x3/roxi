@@ -1,10 +1,7 @@
 use crate::{config::Config, ClientResult};
 use bytes::BytesMut;
 use roxi_lib::types::{Address, ClientId, InterfaceKind};
-use roxi_proto::{
-    Message, MessageKind, MessageStatus, WireGuardConfig, WireGuardConfigBuilder,
-    WireGuardKey, WireGuardPeer,
-};
+use roxi_proto::{Message, MessageKind, MessageStatus, WireGuardConfig, WireGuardPeer};
 use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -18,6 +15,7 @@ const STUN_MAGIC_COOKIE: u32 = 0x2112A442;
 
 pub struct Client {
     config: Config,
+    wireguard_config: Arc<Mutex<WireGuardConfig>>,
     tcp: TcpStream,
     udp: UdpSocket,
     peer_stream: Option<(ClientId, Address, Arc<Mutex<TcpStream>>)>,
@@ -27,6 +25,7 @@ impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
         Ok(Self {
             config: config.clone(),
+            wireguard_config: Arc::new(Mutex::new(config.wireguard_config()?)),
             tcp: TcpStream::connect(&config.remote_addr(InterfaceKind::Tcp)).await?,
             udp: UdpSocket::bind(&config.remote_addr(InterfaceKind::Udp)).await?,
             peer_stream: None,
@@ -123,7 +122,7 @@ impl Client {
     async fn nat_punch(&mut self, addr: Address) -> ClientResult<()> {
         tracing::info!("Attempting NAT punch to {addr:?}");
 
-        // FIXME: What is the timeout on this?
+        // TODO: What is the timeout on this?
         match TcpStream::connect(&addr.to_string()).await {
             Ok(stream) => {
                 tracing::info!(
@@ -162,29 +161,32 @@ impl Client {
 
     #[allow(unused)]
     async fn request_tunnel_info(&mut self) -> ClientResult<()> {
-        let addr = "0.0.0.0".parse()?;
-        let port = 12345;
-        let dns = "1.1.1.1".parse()?;
-
-        // TODO: This info comes from the peer's PeerTunnelInitResponse
-        let pubkey = WireGuardKey::from_public("12345".to_string());
+        let pubkey = self.config.wireguard_pubkey()?;
         let endpoint = None;
         let allowed_ips = Vec::new();
         let persistent_keepalive = 1;
 
-        let peer = WireGuardPeer::new(
+        let data = bincode::serialize(&WireGuardPeer::new(
             Some(pubkey),
             allowed_ips,
             endpoint,
             Some(persistent_keepalive),
-        );
-        let config: WireGuardConfig = WireGuardConfigBuilder::builder()
-            .private_key()
-            .address(addr)
-            .port(port)
-            .dns(dns)
-            .peer(peer)
-            .build();
+        ))?;
+
+        if let Some(msg) = self
+            .send(Message::new(
+                MessageKind::PeerTunnelInitRequest,
+                MessageStatus::Pending,
+                self.config.remote_addr(InterfaceKind::Tcp),
+                Some(data),
+            ))
+            .await?
+        {
+            let peer: WireGuardPeer = bincode::deserialize(&msg.data())?;
+            self.wireguard_config.lock().await.add_peer(peer);
+
+            // TODO: Save updated wireguard config
+        }
 
         Ok(())
     }

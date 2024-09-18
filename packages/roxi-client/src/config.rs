@@ -1,5 +1,6 @@
 use crate::{error::ClientError, ClientResult};
 use roxi_lib::types::{InterfaceKind, SharedKey};
+use roxi_proto::{command, WireGuardConfig, WireGuardKey};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -100,11 +101,18 @@ impl Server {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct WireGuard {
+    config: PathBuf,
+    private_key: PathBuf,
+    public_key: PathBuf,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Network {
     server: Server,
     gateway: Gateway,
     stun: Stun,
-    wireguard_config: PathBuf,
+    wireguard: WireGuard,
     nat: Nat,
 }
 
@@ -157,8 +165,19 @@ impl Config {
         self.network.gateway.max_clients
     }
 
-    pub fn wireguard_config(&self) -> &PathBuf {
-        &self.network.wireguard_config
+    pub fn wireguard_config(&self) -> ClientResult<WireGuardConfig> {
+        let config = WireGuardConfig::try_from(&self.network.wireguard.config)?;
+        Ok(config)
+    }
+
+    pub fn wireguard_pubkey(&self) -> ClientResult<WireGuardKey> {
+        let k = command::cat_wireguard_key(&self.network.wireguard.public_key)?;
+        Ok(k)
+    }
+
+    pub fn wireguard_privkey(&self) -> ClientResult<WireGuardKey> {
+        let k = command::cat_wireguard_key(&self.network.wireguard.private_key)?;
+        Ok(k)
     }
 
     pub fn nat_punch_delay(&self) -> u8 {

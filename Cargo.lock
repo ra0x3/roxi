@@ -3294,6 +3294,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-std",
+ "bincode",
  "bytes",
  "rand",
  "ring 0.17.8",
@@ -3355,6 +3356,7 @@ name = "roxi-server"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "bincode",
  "bytes",
  "ring 0.17.8",
  "roxi-client",

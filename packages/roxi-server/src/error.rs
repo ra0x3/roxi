@@ -40,4 +40,10 @@ pub enum ServerError {
 
     #[error("Only Ipv4 is supported")]
     UnsupportedIpAddrType,
+
+    #[error("Bincode error: {0}")]
+    Bincode(#[from] bincode::Error),
+
+    #[error("Client error: {0}")]
+    Client(#[from] roxi_client::ClientError),
 }
