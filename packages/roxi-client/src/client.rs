@@ -185,8 +185,7 @@ impl Client {
             let peer: WireGuardPeer = bincode::deserialize(&msg.data())?;
             self.wireguard_config.lock().await.add_peer(peer);
 
-            let _ = self
-                .wireguard_config
+            self.wireguard_config
                 .lock()
                 .await
                 .save(self.config.wireguard_config_path())?;
