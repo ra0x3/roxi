@@ -165,6 +165,10 @@ impl Config {
         self.network.gateway.max_clients
     }
 
+    pub fn wireguard_config_path(&self) -> &PathBuf {
+        &self.network.wireguard.config
+    }
+
     pub fn wireguard_config(&self) -> ClientResult<WireGuardConfig> {
         let config = WireGuardConfig::try_from(&self.network.wireguard.config)?;
         Ok(config)
