@@ -10,10 +10,17 @@ install_mac() {
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     fi
 
-    echo "Installing Rust 1.78..."
-    brew install rustup-init
-    rustup toolchain install 1.78.0
-    rustup default 1.78.0
+    echo "Checking for Rust installation..."
+    if command -v rustc &> /dev/null; then
+        echo "Rust is installed. Setting to version 1.78..."
+        rustup install 1.78.0
+        rustup default 1.78.0
+    else
+        echo "Rust not found. Installing Rust 1.78..."
+        brew install rustup-init
+        rustup toolchain install 1.78.0
+        rustup default 1.78.0
+    fi
 
     echo "Installing boringtun 0.5..."
     brew install boringtun
@@ -28,9 +35,16 @@ install_linux() {
     echo "Installing package dependencies..."
     sudo apt-get install -y libssl-dev pkg-config git curl
 
-    echo "Installing Rust 1.78..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.78.0 -y
-    source $HOME/.cargo/env
+    echo "Checking for Rust installation..."
+    if command -v rustc &> /dev/null; then
+        echo "Rust is installed. Setting to version 1.78..."
+        rustup install 1.78.0
+        rustup default 1.78.0
+    else
+        echo "Rust not found. Installing Rust 1.78..."
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.78.0 -y
+        source $HOME/.cargo/env
+    fi
 
     echo "Installing boringtun 0.5..."
     git clone https://github.com/cloudflare/boringtun.git
