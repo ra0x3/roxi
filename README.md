@@ -2,6 +2,12 @@
 
 <image src="#" height="200px" />
 
+## Dependencies
+
+- `rustc 1.78.0`
+- `boringtun 0.5.2`
+- `docker 20.10` (optional)
+
 ## Commands List
 
 | Command   | Description                         | Implemented |
