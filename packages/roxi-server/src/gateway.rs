@@ -25,11 +25,12 @@ impl Gateway {
         let client_limit =
             Arc::new(Semaphore::new(config.max_gateway_clients() as usize));
 
+        let wireguard_config = WireGuardConfig::from(config.wireguard());
         Ok(Self {
             tcp,
             client_limit,
             config: config.clone(),
-            wireguard_config: Arc::new(Mutex::new(config.wireguard_config()?)),
+            wireguard_config: Arc::new(Mutex::new(wireguard_config)),
             client_streams: Arc::new(RwLock::new(HashMap::new())),
         })
     }
@@ -90,16 +91,13 @@ impl Gateway {
 
                 // TODO: Save new config
 
-                let pubkey = self
-                    .config
-                    .wireguard_pubkey()
-                    .expect("Failed to generate WireGuard public key");
+                let pubkey = self.wireguard_config.lock().await.public_key();
 
                 let allowed_ips = Vec::new();
                 let endpoint = None;
                 let persistent_keepalive = 1;
                 let data = bincode::serialize(&WireGuardPeer::new(
-                    Some(pubkey),
+                    pubkey,
                     allowed_ips,
                     endpoint,
                     Some(persistent_keepalive),

@@ -9,7 +9,18 @@ network:
       udp: 5675
     max_clients: 10
 
-  wireguard_config: /opt/homebrew/etc/wireguard/wg0.conf
+  wireguard:
+    private_key: "<ServerPrivateKey>"
+    public_key: "<ServerPublicKey>"
+    address: "10.0.0.1/24"
+    port: 51820
+    dns: "1.1.1.1"
+    peers:
+      - public_key: "<ServerPublicKey>"
+        allowed_ips:
+          - "10.0.0.2/32"
+        endpoint: "<ClientIPAddress>:51820"
+        persistent_keep_alive: 25
 
   tun:
     address: "10.0.0.1"

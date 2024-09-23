@@ -1,29 +1,25 @@
 use crate::{error::ClientError, ClientResult};
-use roxi_lib::types::{InterfaceKind, SharedKey};
-use roxi_proto::{command, WireGuardConfig, WireGuardKey};
+use roxi_lib::types::{
+    InterfaceKind, Ports, SharedKey, WireGuard, WireGuardPeer as WireGuardPeerConfig,
+};
+use roxi_proto::WireGuardPeer;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::Write,
-    net::Ipv4Addr,
+    net::{IpAddr, Ipv4Addr},
     path::{Path, PathBuf},
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
-pub struct Ports {
-    tcp: u16,
-    udp: u16,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Stun {
-    ip: Option<Ipv4Addr>,
+    ip: Option<IpAddr>,
     port: Option<u16>,
 }
 
 impl From<[u8; 6]> for Stun {
     fn from(d: [u8; 6]) -> Self {
-        let ip = Ipv4Addr::new(d[0], d[1], d[2], d[3]);
+        let ip = IpAddr::V4(Ipv4Addr::new(d[0], d[1], d[2], d[3]));
         let port = u16::from_be_bytes([d[4], d[5]]);
         Self {
             ip: Some(ip),
@@ -54,8 +50,8 @@ pub struct Nat {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Gateway {
-    interface: Ipv4Addr,
-    ip: Ipv4Addr,
+    interface: IpAddr,
+    ip: IpAddr,
     ports: Ports,
     max_clients: u16,
 }
@@ -79,8 +75,8 @@ impl Gateway {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
 pub struct Server {
-    interface: Ipv4Addr,
-    ip: Ipv4Addr,
+    interface: IpAddr,
+    ip: IpAddr,
     ports: Ports,
 }
 
@@ -98,13 +94,6 @@ impl Server {
             InterfaceKind::Udp => format!("{}:{}", self.ip, self.ports.udp),
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
-pub struct WireGuard {
-    config: PathBuf,
-    private_key: PathBuf,
-    public_key: PathBuf,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
@@ -165,31 +154,24 @@ impl Config {
         self.network.gateway.max_clients
     }
 
-    pub fn wireguard_config_path(&self) -> &PathBuf {
-        &self.network.wireguard.config
-    }
-
-    pub fn wireguard_config(&self) -> ClientResult<WireGuardConfig> {
-        let config = WireGuardConfig::try_from(&self.network.wireguard.config)?;
-        Ok(config)
-    }
-
-    pub fn wireguard_pubkey(&self) -> ClientResult<WireGuardKey> {
-        let k = command::cat_wireguard_key(&self.network.wireguard.public_key)?;
-        Ok(k)
-    }
-
-    pub fn wireguard_privkey(&self) -> ClientResult<WireGuardKey> {
-        let k = command::cat_wireguard_key(&self.network.wireguard.private_key)?;
-        Ok(k)
-    }
-
     pub fn nat_punch_delay(&self) -> u8 {
         self.network.nat.delay
     }
 
     pub fn nat_punch_attempts(&self) -> u8 {
         self.network.nat.attempts
+    }
+
+    pub fn wireguard(&self) -> WireGuard {
+        self.network.wireguard.clone()
+    }
+
+    pub fn update_wireguard_peers(&mut self, peers: Vec<WireGuardPeer>) {
+        let peers = peers
+            .iter()
+            .map(WireGuardPeerConfig::from)
+            .collect::<Vec<WireGuardPeerConfig>>();
+        self.network.wireguard.set_peers(peers);
     }
 
     pub fn save(&self) -> ClientResult<()> {

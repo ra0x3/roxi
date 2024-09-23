@@ -1,9 +1,63 @@
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
-    net::{Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
 };
 use tokio::net::TcpStream;
+
+#[derive(Debug, Serialize, Deserialize, Default, Hash, Clone)]
+pub struct WireGuardPeer {
+    pub public_key: String,
+    pub allowed_ips: Vec<IpAddr>,
+    pub endpoint: Option<String>,
+    pub persistent_keepalive: Option<u16>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct WireGuard {
+    private_key: String,
+    public_key: String,
+    address: IpAddr,
+    dns: Option<IpAddr>,
+    port: u16,
+    peers: Vec<WireGuardPeer>,
+}
+
+impl WireGuard {
+    pub fn private_key(&self) -> String {
+        self.private_key.clone()
+    }
+
+    pub fn public_key(&self) -> String {
+        self.public_key.clone()
+    }
+
+    pub fn dns(&self) -> Option<IpAddr> {
+        self.dns
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn address(&self) -> IpAddr {
+        self.address
+    }
+
+    pub fn set_peers(&mut self, p: Vec<WireGuardPeer>) {
+        self.peers = p;
+    }
+
+    pub fn peers(&self) -> Vec<WireGuardPeer> {
+        self.peers.clone()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct Ports {
+    pub tcp: u16,
+    pub udp: u16,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum InterfaceKind {
