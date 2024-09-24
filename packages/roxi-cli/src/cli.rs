@@ -1,4 +1,6 @@
-pub(crate) use crate::command::{auth, connect, gateway, hello, ping, serve, stun};
+pub(crate) use crate::command::{
+    auth, connect, gateway, hello, ping, quick, serve, stun,
+};
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -25,6 +27,8 @@ pub enum RoxiCli {
     Stun(stun::Args),
     #[clap(name = "gateway", about = "Start Roxi gateway server")]
     Gateway(gateway::Args),
+    #[clap(name = "quick", about = "Run wg-quick")]
+    Quick(quick::Args),
 }
 
 pub async fn run_cli() -> Result<(), anyhow::Error> {
@@ -38,5 +42,6 @@ pub async fn run_cli() -> Result<(), anyhow::Error> {
         RoxiCli::Auth(command) => auth::exec(command).await,
         RoxiCli::Stun(command) => stun::exec(command).await,
         RoxiCli::Gateway(command) => gateway::exec(command).await,
+        RoxiCli::Quick(command) => quick::exec(command).await,
     }
 }

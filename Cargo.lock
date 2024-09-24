@@ -3281,6 +3281,8 @@ dependencies = [
  "roxi-server",
  "serde",
  "serde_json",
+ "strum",
+ "strum_macros 0.26.4",
  "tempfile",
  "tokio",
  "tracing",
