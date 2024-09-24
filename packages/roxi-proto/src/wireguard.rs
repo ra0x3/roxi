@@ -1,5 +1,7 @@
-use crate::{ProtoError, ProtoResult};
-use roxi_lib::types::{WireGuard, WireGuardPeer as WireGuardConfigPeer};
+use crate::{command, ProtoError, ProtoResult};
+use roxi_lib::types::{
+    Boringtun, ToolType, WgQuick, WireGuard, WireGuardPeer as WireGuardConfigPeer,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
@@ -47,69 +49,35 @@ impl fmt::Display for WireGuardKey {
     }
 }
 
-pub struct WireGuardKeyPair {
-    #[allow(unused)]
-    pubkey: WireGuardKey,
-    privkey: WireGuardKey,
+impl TryFrom<&PathBuf> for WireGuardKey {
+    type Error = ProtoError;
+    fn try_from(p: &PathBuf) -> ProtoResult<Self> {
+        let k = command::cat_wireguard_key(p)?;
+        Ok(k)
+    }
 }
 
-impl WireGuardKeyPair {
-    pub fn new(pubkey: WireGuardKey, privkey: WireGuardKey) -> Self {
-        Self { pubkey, privkey }
-    }
-
-    pub fn privkey(&self) -> WireGuardKey {
-        self.privkey.clone()
-    }
+pub struct WireGuardKeyPair {
+    #[allow(unused)]
+    pub pubkey: WireGuardKey,
+    pub privkey: WireGuardKey,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WireGuardInterface {
-    private_key: WireGuardKey,
-    public_key: WireGuardKey,
-    address: IpAddr,
-    port: u16,
-    dns: Option<IpAddr>,
+    pub private_key: WireGuardKey,
+    pub public_key: WireGuardKey,
+    pub address: IpAddr,
+    pub port: u16,
+    pub dns: Option<IpAddr>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Hash, Clone)]
 pub struct WireGuardPeer {
-    public_key: WireGuardKey,
-    allowed_ips: Vec<IpAddr>,
-    endpoint: Option<String>,
-    persistent_keepalive: Option<u16>,
-}
-
-impl WireGuardPeer {
-    pub fn new(
-        public_key: WireGuardKey,
-        allowed_ips: Vec<IpAddr>,
-        endpoint: Option<String>,
-        persistent_keepalive: Option<u16>,
-    ) -> Self {
-        Self {
-            public_key,
-            allowed_ips,
-            endpoint,
-            persistent_keepalive,
-        }
-    }
-
-    pub fn public_key(&self) -> WireGuardKey {
-        self.public_key.clone()
-    }
-
-    pub fn allowed_ips(&self) -> Vec<IpAddr> {
-        self.allowed_ips.clone()
-    }
-
-    pub fn endpoint(&self) -> Option<String> {
-        self.endpoint.clone()
-    }
-
-    pub fn persistent_keepalive(&self) -> Option<u16> {
-        self.persistent_keepalive
-    }
+    pub public_key: WireGuardKey,
+    pub allowed_ips: Vec<IpAddr>,
+    pub endpoint: Option<String>,
+    pub persistent_keepalive: Option<u16>,
 }
 
 impl From<WireGuardConfigPeer> for WireGuardPeer {
@@ -131,46 +99,28 @@ impl From<WireGuardConfigPeer> for WireGuardPeer {
 
 impl From<&WireGuardPeer> for WireGuardConfigPeer {
     fn from(p: &WireGuardPeer) -> Self {
+        let WireGuardPeer {
+            public_key,
+            allowed_ips,
+            endpoint,
+            persistent_keepalive,
+        } = p.to_owned();
         Self {
-            public_key: p.public_key().to_string(),
-            allowed_ips: p.allowed_ips(),
-            endpoint: p.endpoint(),
-            persistent_keepalive: p.persistent_keepalive(),
+            public_key: public_key.to_string(),
+            allowed_ips,
+            endpoint,
+            persistent_keepalive,
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WireGuardConfig {
-    interface: WireGuardInterface,
-    peers: Vec<WireGuardPeer>,
+    pub interface: WireGuardInterface,
+    pub peers: Vec<WireGuardPeer>,
 }
 
 impl WireGuardConfig {
-    pub fn public_key(&self) -> WireGuardKey {
-        self.interface.public_key.clone()
-    }
-
-    pub fn private_key(&self) -> WireGuardKey {
-        self.interface.private_key.clone()
-    }
-
-    pub fn dns(&self) -> Option<IpAddr> {
-        self.interface.dns
-    }
-
-    pub fn port(&self) -> u16 {
-        self.interface.port
-    }
-
-    pub fn address(&self) -> IpAddr {
-        self.interface.address
-    }
-
-    pub fn peers(&self) -> Vec<WireGuardPeer> {
-        self.peers.clone()
-    }
-
     pub fn add_peer(&mut self, p: WireGuardPeer) {
         self.peers.push(p)
     }
@@ -183,21 +133,76 @@ impl WireGuardConfig {
     }
 }
 
-impl From<WireGuard> for WireGuardConfig {
-    fn from(w: WireGuard) -> Self {
-        Self {
-            interface: WireGuardInterface {
-                public_key: WireGuardKey::from_public(w.public_key()),
-                private_key: WireGuardKey::from_private(w.private_key()),
-                dns: w.dns(),
-                address: w.address(),
-                port: w.port(),
-            },
-            peers: w
-                .peers()
-                .iter()
-                .map(|p| WireGuardPeer::from(p.to_owned()))
-                .collect::<Vec<WireGuardPeer>>(),
+impl TryFrom<&str> for WireGuardConfig {
+    type Error = toml::de::Error;
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let c: WireGuardConfig = toml::from_str(s)?;
+        Ok(c)
+    }
+}
+
+impl TryFrom<&PathBuf> for WireGuardConfig {
+    type Error = ProtoError;
+    fn try_from(p: &PathBuf) -> ProtoResult<Self> {
+        let content = fs::read_to_string(p)?;
+        let config: WireGuardConfig = toml::from_str(&content)?;
+        Ok(config)
+    }
+}
+
+impl TryFrom<&Path> for WireGuardConfig {
+    type Error = ProtoError;
+    fn try_from(p: &Path) -> ProtoResult<Self> {
+        let content = fs::read_to_string(p)?;
+        let config: WireGuardConfig = toml::from_str(&content)?;
+        Ok(config)
+    }
+}
+
+impl TryFrom<WireGuard> for WireGuardConfig {
+    type Error = ProtoError;
+    fn try_from(w: WireGuard) -> Result<Self, Self::Error> {
+        let WireGuard {
+            r#type,
+            boringtun,
+            wgquick,
+        } = w;
+        match r#type {
+            ToolType::WgQuick => {
+                if let Some(WgQuick { config }) = wgquick {
+                    let config = WireGuardConfig::try_from(&config)?;
+                    Ok(config)
+                } else {
+                    Err(ProtoError::MalformedConfig)
+                }
+            }
+            ToolType::Boringtun => {
+                if let Some(Boringtun {
+                    public_key,
+                    private_key,
+                    dns,
+                    address,
+                    port,
+                    peers,
+                }) = boringtun
+                {
+                    Ok(Self {
+                        interface: WireGuardInterface {
+                            public_key: WireGuardKey::from_public(public_key),
+                            private_key: WireGuardKey::from_private(private_key),
+                            dns,
+                            address,
+                            port,
+                        },
+                        peers: peers
+                            .iter()
+                            .map(|p| WireGuardPeer::from(p.to_owned()))
+                            .collect::<Vec<WireGuardPeer>>(),
+                    })
+                } else {
+                    Err(ProtoError::MalformedConfig)
+                }
+            }
         }
     }
 }
@@ -265,31 +270,5 @@ impl WireGuardConfigBuilder {
             },
             peers: self.peers,
         }
-    }
-}
-
-impl TryFrom<&str> for WireGuardConfig {
-    type Error = toml::de::Error;
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let c: WireGuardConfig = toml::from_str(s)?;
-        Ok(c)
-    }
-}
-
-impl TryFrom<&PathBuf> for WireGuardConfig {
-    type Error = ProtoError;
-    fn try_from(p: &PathBuf) -> ProtoResult<Self> {
-        let content = fs::read_to_string(p)?;
-        let config: WireGuardConfig = toml::from_str(&content)?;
-        Ok(config)
-    }
-}
-
-impl TryFrom<&Path> for WireGuardConfig {
-    type Error = ProtoError;
-    fn try_from(p: &Path) -> ProtoResult<Self> {
-        let content = fs::read_to_string(p)?;
-        let config: WireGuardConfig = toml::from_str(&content)?;
-        Ok(config)
     }
 }

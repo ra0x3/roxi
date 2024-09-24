@@ -25,6 +25,9 @@ pub enum ProtoError {
 
     #[error("Toml ser error: {0}")]
     TomlSer(#[from] toml::ser::Error),
+
+    #[error("Malformed config")]
+    MalformedConfig,
 }
 
 impl From<ring::error::Unspecified> for ProtoError {

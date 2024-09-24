@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt,
     net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::PathBuf,
 };
 use tokio::net::TcpStream;
 
@@ -14,43 +15,34 @@ pub struct WireGuardPeer {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
-pub struct WireGuard {
-    private_key: String,
-    public_key: String,
-    address: IpAddr,
-    dns: Option<IpAddr>,
-    port: u16,
-    peers: Vec<WireGuardPeer>,
+pub enum ToolType {
+    #[serde(rename = "wgquick")]
+    WgQuick,
+
+    #[serde(rename = "boringtun")]
+    Boringtun,
 }
 
-impl WireGuard {
-    pub fn private_key(&self) -> String {
-        self.private_key.clone()
-    }
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct WireGuard {
+    pub r#type: ToolType,
+    pub wgquick: Option<WgQuick>,
+    pub boringtun: Option<Boringtun>,
+}
 
-    pub fn public_key(&self) -> String {
-        self.public_key.clone()
-    }
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct WgQuick {
+    pub config: PathBuf,
+}
 
-    pub fn dns(&self) -> Option<IpAddr> {
-        self.dns
-    }
-
-    pub fn port(&self) -> u16 {
-        self.port
-    }
-
-    pub fn address(&self) -> IpAddr {
-        self.address
-    }
-
-    pub fn set_peers(&mut self, p: Vec<WireGuardPeer>) {
-        self.peers = p;
-    }
-
-    pub fn peers(&self) -> Vec<WireGuardPeer> {
-        self.peers.clone()
-    }
+#[derive(Debug, Serialize, Deserialize, Clone, Hash)]
+pub struct Boringtun {
+    pub private_key: String,
+    pub public_key: String,
+    pub address: IpAddr,
+    pub dns: Option<IpAddr>,
+    pub port: u16,
+    pub peers: Vec<WireGuardPeer>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]

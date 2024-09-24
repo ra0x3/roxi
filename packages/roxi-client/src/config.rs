@@ -1,8 +1,5 @@
 use crate::{error::ClientError, ClientResult};
-use roxi_lib::types::{
-    InterfaceKind, Ports, SharedKey, WireGuard, WireGuardPeer as WireGuardPeerConfig,
-};
-use roxi_proto::WireGuardPeer;
+use roxi_lib::types::{InterfaceKind, Ports, SharedKey, WireGuard};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -164,14 +161,6 @@ impl Config {
 
     pub fn wireguard(&self) -> WireGuard {
         self.network.wireguard.clone()
-    }
-
-    pub fn update_wireguard_peers(&mut self, peers: Vec<WireGuardPeer>) {
-        let peers = peers
-            .iter()
-            .map(WireGuardPeerConfig::from)
-            .collect::<Vec<WireGuardPeerConfig>>();
-        self.network.wireguard.set_peers(peers);
     }
 
     pub fn save(&self) -> ClientResult<()> {

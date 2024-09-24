@@ -23,7 +23,7 @@ pub struct Client {
 
 impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
-        let wireguard_config = WireGuardConfig::from(config.wireguard());
+        let wireguard_config = WireGuardConfig::try_from(config.wireguard())?;
         Ok(Self {
             config: config.clone(),
             wireguard_config: Arc::new(Mutex::new(wireguard_config)),
@@ -162,17 +162,23 @@ impl Client {
 
     #[allow(unused)]
     async fn request_tunnel_info(&mut self) -> ClientResult<()> {
-        let pubkey = self.wireguard_config.lock().await.public_key();
+        let pubkey = self
+            .wireguard_config
+            .lock()
+            .await
+            .interface
+            .public_key
+            .clone();
         let endpoint = None;
         let allowed_ips = Vec::new();
         let persistent_keepalive = 1;
 
-        let data = bincode::serialize(&WireGuardPeer::new(
-            pubkey.to_owned(),
+        let data = bincode::serialize(&WireGuardPeer {
+            public_key: pubkey.to_owned(),
             allowed_ips,
             endpoint,
-            Some(persistent_keepalive),
-        ))?;
+            persistent_keepalive: Some(persistent_keepalive),
+        })?;
 
         if let Some(msg) = self
             .send(Message::new(
@@ -186,8 +192,7 @@ impl Client {
             let peer: WireGuardPeer = bincode::deserialize(&msg.data())?;
             self.wireguard_config.lock().await.add_peer(peer);
 
-            let peers = self.wireguard_config.lock().await.peers();
-            self.config.update_wireguard_peers(peers);
+            //            self.wireguard_config.save();
         }
 
         Ok(())

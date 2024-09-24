@@ -25,17 +25,21 @@ network:
     max_clients: 10
 
   wireguard:
-    private_key: "<ServerPrivateKey>"
-    public_key: "<ServerPublicKey>"
-    address: "10.0.0.1/24"
-    port: 51820
-    dns: "1.1.1.1"
-    peers:
-      - public_key: "<ServerPublicKey>"
-        allowed_ips:
-          - "10.0.0.2/32"
-        endpoint: "<ClientIPAddress>:51820"
-        persistent_keep_alive: 25
+    type: "wgquick" # wg-quick/boringtun
+    wgquick:
+      config: "/opt/homebrew/etc/wireguard/wg0.conf"
+    boringtun:
+      private_key: "<ServerPrivateKey>"
+      public_key: "<ServerPublicKey>"
+      address: "10.0.0.1/24"
+      port: 51820
+      dns: "1.1.1.1"
+      peers:
+        - public_key: "<ServerPublicKey>"
+          allowed_ips:
+            - "10.0.0.2/32"
+          endpoint: "<ClientIPAddress>:51820"
+          persistent_keep_alive: 25
 
 auth:
   shared_key: "roxi-XXX"

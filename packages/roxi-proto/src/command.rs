@@ -54,7 +54,7 @@ pub fn wireguard_keypair() -> ProtoResult<WireGuardKeyPair> {
     let pubkey = WireGuardKey::from_public(pubkey);
     let privkey = WireGuardKey::from_private(privkey);
 
-    Ok(WireGuardKeyPair::new(pubkey, privkey))
+    Ok(WireGuardKeyPair { pubkey, privkey })
 }
 
 pub fn derive_wireguard_pubkey(privkey: &mut WireGuardKey) -> ProtoResult<WireGuardKey> {
