@@ -6,7 +6,16 @@
 
 - `rustc 1.78.0`
 - `boringtun 0.5.2`
+- `wireguard-tools v1.0`
 - `docker 20.10` (optional)
+
+## Installation
+
+The following script should install all prerequisites and dependencies
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://install.roxi.app | sh
+```
 
 ## Commands List
 
@@ -50,19 +59,39 @@ cargo run --bin roxi -- stun --config client.yaml
 
 ### Testing TUN interface on Mac
 
-Install Wireguard
+#### Install Wireguard
+
+Mac OS
 
 ```sh
 HOMEBREW_NO_AUTO_UPDATE=1 brew install wireguard-tools
 ```
 
-Install bash 4+
+Linux
+
+```sh
+sudo apt update && sudo apt install -y wireguard
+```
+
+#### Install bash 4+
+
+Mac OS
 
 ```sh
 HOMEBREW_NO_AUTO_UPDATE=1 brew install bash
 ```
 
+Linux
+
+```sh
+sudo apt-get update && sudo apt-get install -y bash
+```
+
+#### Update WireGuard config
+
 Copy Wireguard server conf over to config
+
+Mac OS
 
 ```sh
 cp wg0.conf /opt/homebrew/etc/wireguard/
@@ -74,9 +103,11 @@ Generate Wireguard keys
 sudo wg genkey | sudo tee /etc/wireguard/privatekey | sudo wg pubkey | sudo tee /etc/wireguard/publickey
 ```
 
-*Update Wireguard config with new keys*
+⚠️  Update Wireguard config with new keys
 
-Start Wireguard
+#### Start Wireguard on interface `wg0` using `wg-quick`
+
+You can also use `boringtun` but `wg-quick` is much faster
 
 ```sh
 sudo /opt/homebrew/bin/bash /opt/homebrew/bin/wg-quick up wg0
