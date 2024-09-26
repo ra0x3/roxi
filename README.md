@@ -1,6 +1,6 @@
 # roxi
 
-<image src="#" height="200px" />
+<image src="https://i.imgur.com/ADlVxrr.png" height="200px" />
 
 ## Dependencies
 
@@ -8,6 +8,20 @@
 - `boringtun 0.5.2`
 - `wireguard-tools v1.0`
 - `docker 20.10` (optional)
+
+## How it works
+
+### Centralized peer-to-peer setup
+
+<image src="https://www.researchgate.net/publication/356245976/figure/fig3/AS:1093585697021954@1637742556713/The-centralized-peer-to-peer-P2P-system-A-peer-E-sends-a-message-to-the-central-server.ppm" height="300px" />
+
+### Network Address Translator (NAT) Punching
+
+<image src="https://www.researchgate.net/publication/228411948/figure/fig6/AS:301985531219968@1449010369011/New-method-of-UDP-multi-hole-punching.png" height="300px" />
+
+### WireGuard Tunneling
+
+<image src="https://www.procustodibus.com/images/blog/wireguard-topologies/site-to-site-complex.svg" height="400px" />
 
 ## Installation
 
