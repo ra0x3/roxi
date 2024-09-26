@@ -31,13 +31,15 @@ network:
     boringtun:
       private_key: "<ServerPrivateKey>"
       public_key: "<ServerPublicKey>"
-      address: "10.0.0.1/24"
+      address: "10.0.0.1"
+      network_size: "24"
       port: 51820
       dns: "1.1.1.1"
       peers:
         - public_key: "<ServerPublicKey>"
+          network_size: "32"
           allowed_ips:
-            - "10.0.0.2/32"
+            - "10.0.0.2"
           endpoint: "<ClientIPAddress>:51820"
           persistent_keep_alive: 25
 

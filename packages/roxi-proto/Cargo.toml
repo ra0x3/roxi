@@ -13,8 +13,6 @@ description = "Roxi Server"
 [dependencies]
 async-std = { workspace = true }
 bincode = { version = "1" }
-boringtun = { version = "0.5" }
-ring = { version = "0.17" }
 roxi-crypto = { path = "../roxi-crypto" }
 roxi-lib = { path = "../roxi-lib" }
 serde = { workspace = true }
@@ -24,7 +22,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 toml = { version = "0.8" }
-tun = { version = "0.6" }
 
 [lib]
 name = "roxi_proto"

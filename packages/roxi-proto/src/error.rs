@@ -20,18 +20,12 @@ pub enum ProtoError {
     #[error("Crypto error: {0}")]
     Crypto(#[from] roxi_crypto::CryptoError),
 
-    #[error("Unspecified ring error")]
-    Unspecified,
-
     #[error("Toml ser error: {0}")]
     TomlSer(#[from] toml::ser::Error),
 
     #[error("Malformed config")]
     MalformedConfig,
-}
 
-impl From<ring::error::Unspecified> for ProtoError {
-    fn from(_: ring::error::Unspecified) -> Self {
-        ProtoError::Unspecified
-    }
+    #[error("Missing wireguard config file: {0}")]
+    MissingWireGuardField(String),
 }

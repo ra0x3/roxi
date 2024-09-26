@@ -1,9 +1,9 @@
 use crate::{error::ServerError, ServerResult};
-use roxi_lib::types::{InterfaceKind, SharedKey};
+use roxi_lib::types::{InterfaceKind, SharedKey, WireGuard};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
-    net::Ipv4Addr,
+    net::IpAddr,
     path::{Path, PathBuf},
 };
 
@@ -15,10 +15,10 @@ pub struct Ports {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Tun {
-    address: Ipv4Addr,
-    netmask: Ipv4Addr,
+    address: IpAddr,
+    netmask: IpAddr,
     name: String,
-    destination: Ipv4Addr,
+    destination: IpAddr,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -29,8 +29,8 @@ pub struct Auth {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Server {
-    interface: Ipv4Addr,
-    ip: Ipv4Addr,
+    interface: IpAddr,
+    ip: IpAddr,
     ports: Ports,
     max_clients: u16,
 }
@@ -55,7 +55,7 @@ impl Server {
 pub struct Network {
     server: Server,
     tun: Tun,
-    wireguard_config: PathBuf,
+    wireguard: WireGuard,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -86,8 +86,8 @@ impl Config {
         self.auth.session_ttl
     }
 
-    pub fn wireguard_config(&self) -> &PathBuf {
-        &self.network.wireguard_config
+    pub fn wireguard(&self) -> WireGuard {
+        self.network.wireguard.clone()
     }
 }
 

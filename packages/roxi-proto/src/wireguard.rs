@@ -2,7 +2,7 @@ use crate::{command, ProtoError, ProtoResult};
 use roxi_lib::types::{
     Boringtun, ToolType, WgQuick, WireGuard, WireGuardPeer as WireGuardConfigPeer,
 };
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     fmt,
     fs::{self, File},
@@ -11,13 +11,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Clone, Serialize, Deserialize, Debug, Hash)]
+#[derive(Clone, Serialize, Deserialize, Debug, Hash, Default)]
 pub enum WireGuardKeyKind {
     Private,
+    #[default]
     Public,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct WireGuardKey {
     key: String,
     kind: WireGuardKeyKind,
@@ -63,7 +64,7 @@ pub struct WireGuardKeyPair {
     pub privkey: WireGuardKey,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct WireGuardInterface {
     pub private_key: WireGuardKey,
     pub public_key: WireGuardKey,
@@ -72,12 +73,184 @@ pub struct WireGuardInterface {
     pub dns: Option<IpAddr>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Hash, Clone)]
+impl Serialize for WireGuardInterface {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let mut state = serializer.serialize_struct("WireGuardInterface", 4)?;
+        state.serialize_field("PrivateKey", &self.private_key)?;
+        state.serialize_field("Address", &self.address)?;
+        state.serialize_field("ListenPort", &self.port)?;
+        if let Some(dns) = &self.dns {
+            state.serialize_field("Dns", dns)?;
+        }
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for WireGuardInterface {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::{MapAccess, Visitor};
+        use std::fmt;
+
+        struct WireGuardInterfaceVisitor;
+
+        impl<'de> Visitor<'de> for WireGuardInterfaceVisitor {
+            type Value = WireGuardInterface;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct WireGuardInterface")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<WireGuardInterface, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut private_key = None;
+                let mut address = None;
+                let mut port = None;
+                let mut dns = None;
+
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "PrivateKey" => {
+                            private_key = Some(map.next_value()?);
+                        }
+                        "Address" => {
+                            address = Some(map.next_value()?);
+                        }
+                        "ListenPort" => {
+                            port = Some(map.next_value()?);
+                        }
+                        "Dns" => {
+                            dns = Some(map.next_value()?);
+                        }
+                        _ => {
+                            let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                        }
+                    }
+                }
+
+                let private_key = private_key.unwrap();
+                let address = address.unwrap();
+                let port = port.unwrap();
+
+                Ok(WireGuardInterface {
+                    private_key,
+                    public_key: WireGuardKey {
+                        key: "mock".to_string(),
+                        kind: WireGuardKeyKind::default(),
+                    },
+                    address,
+                    port,
+                    dns,
+                })
+            }
+        }
+
+        deserializer.deserialize_struct(
+            "WireGuardInterface",
+            &["PrivateKey", "Address", "ListenPort", "Dns"],
+            WireGuardInterfaceVisitor,
+        )
+    }
+}
+
+#[derive(Debug, Hash, Clone)]
 pub struct WireGuardPeer {
     pub public_key: WireGuardKey,
     pub allowed_ips: Vec<IpAddr>,
     pub endpoint: Option<String>,
     pub persistent_keepalive: Option<u16>,
+}
+
+impl Serialize for WireGuardPeer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let mut state = serializer.serialize_struct("WireGuardPeer", 4)?;
+        state.serialize_field("PublicKey", &self.public_key)?;
+        state.serialize_field("AllowedIps", &self.allowed_ips)?;
+        if let Some(endpoint) = &self.endpoint {
+            state.serialize_field("Endpoint", endpoint)?;
+        }
+        if let Some(persistent_keepalive) = &self.persistent_keepalive {
+            state.serialize_field("PersistentKeepalive", persistent_keepalive)?;
+        }
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for WireGuardPeer {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct WireGuardPeerVisitor;
+
+        impl<'de> de::Visitor<'de> for WireGuardPeerVisitor {
+            type Value = WireGuardPeer;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct WireGuardPeer")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<WireGuardPeer, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut public_key = None;
+                let mut allowed_ips = None;
+                let mut endpoint = None;
+                let mut persistent_keepalive = None;
+
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "PublicKey" => {
+                            public_key = Some(map.next_value()?);
+                        }
+                        "AllowedIPs" => {
+                            allowed_ips = Some(map.next_value()?);
+                        }
+                        "Endpoint" => {
+                            endpoint = Some(map.next_value()?);
+                        }
+                        "PersistentKeepalive" => {
+                            persistent_keepalive = Some(map.next_value()?);
+                        }
+                        _ => {
+                            let _ = map.next_value::<de::IgnoredAny>()?;
+                        }
+                    }
+                }
+
+                let public_key = public_key.unwrap();
+                let allowed_ips = allowed_ips.unwrap();
+
+                Ok(WireGuardPeer {
+                    public_key,
+                    allowed_ips,
+                    endpoint,
+                    persistent_keepalive,
+                })
+            }
+        }
+
+        deserializer.deserialize_struct(
+            "WireGuardPeer",
+            &["PublicKey", "AllowedIPs", "Endpoint", "PersistentKeepalive"],
+            WireGuardPeerVisitor,
+        )
+    }
 }
 
 impl From<WireGuardConfigPeer> for WireGuardPeer {
@@ -87,6 +260,7 @@ impl From<WireGuardConfigPeer> for WireGuardPeer {
             allowed_ips,
             endpoint,
             persistent_keepalive,
+            ..
         } = p;
         Self {
             public_key: WireGuardKey::from_public(public_key),
@@ -110,13 +284,16 @@ impl From<&WireGuardPeer> for WireGuardConfigPeer {
             allowed_ips,
             endpoint,
             persistent_keepalive,
+            network_size: "32".to_string(),
         }
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WireGuardConfig {
+    #[serde(rename = "Interface")]
     pub interface: WireGuardInterface,
+    #[serde(rename = "Peer")]
     pub peers: Vec<WireGuardPeer>,
 }
 
@@ -184,6 +361,7 @@ impl TryFrom<WireGuard> for WireGuardConfig {
                     address,
                     port,
                     peers,
+                    ..
                 }) = boringtun
                 {
                     Ok(Self {
