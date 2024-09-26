@@ -27,7 +27,7 @@ network:
   wireguard:
     type: "wgquick" # wg-quick/boringtun
     wgquick:
-      config: "/opt/homebrew/etc/wireguard/wg0.conf"
+      config: "/Users/rashad/dev/repos/roxi/wg0.test.conf"
     boringtun:
       private_key: "<ServerPrivateKey>"
       public_key: "<ServerPublicKey>"
