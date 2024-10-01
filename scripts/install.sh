@@ -1,9 +1,9 @@
 #!/bin/sh
 
-export HOMEBREW_NO_AUTO_UPDATE=1
-
 install_mac() {
     echo "Detected macOS"
+
+    export HOMEBREW_NO_AUTO_UPDATE=1
 
     if ! command -v brew &> /dev/null; then
         echo "Homebrew not found. Installing Homebrew..."
@@ -23,7 +23,7 @@ install_mac() {
     fi
 
     echo "Installing boringtun 0.5..."
-    brew install boringtun
+    brew install wireguard-tools
 }
 
 install_linux() {
@@ -46,13 +46,9 @@ install_linux() {
         source $HOME/.cargo/env
     fi
 
-    echo "Installing boringtun 0.5..."
-    git clone https://github.com/cloudflare/boringtun.git
-    cd boringtun
-    cargo build --release
-    sudo cp target/release/boringtun /usr/local/bin/
-    cd ..
-    rm -rf boringtun
+    echo "Installing WireGuard"
+    sudo apt-get install wireguard
+
 }
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
