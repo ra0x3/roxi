@@ -120,7 +120,8 @@ impl<'de> Deserialize<'de> for WireGuardInterface {
                 while let Some(key) = map.next_key::<String>()? {
                     match key.as_str() {
                         "PrivateKey" => {
-                            private_key = Some(WireGuardKey::from_private(map.next_value()?));
+                            private_key =
+                                Some(WireGuardKey::from_private(map.next_value()?));
                         }
                         "Address" => {
                             address = Some(map.next_value()?);
@@ -216,7 +217,8 @@ impl<'de> Deserialize<'de> for WireGuardPeer {
                 while let Some(key) = map.next_key::<String>()? {
                     match key.as_str() {
                         "PublicKey" => {
-                            public_key = Some(WireGuardKey::from_public(map.next_value()?));
+                            public_key =
+                                Some(WireGuardKey::from_public(map.next_value()?));
                         }
                         "AllowedIPs" => {
                             allowed_ips = Some(map.next_value()?);
