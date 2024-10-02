@@ -1,5 +1,6 @@
 #!/bin/sh
 
+RUST_VERSION=1.81.0
 OS=$(uname)
 
 install_mac() {
@@ -14,17 +15,17 @@ install_mac() {
 
     echo "Checking for Rust installation..."
     if command -v rustc > /dev/null 2>&1; then
-        echo "Rust is installed. Setting to version 1.78..."
-        rustup install 1.78.0
-        rustup default 1.78.0
+        echo "Rust is installed. Setting to version ${RUST_VERSION}..."
+        rustup install $RUST_VERSION
+        rustup default $RUST_VERSION
     else
-        echo "Rust not found. Installing Rust 1.78..."
+        echo "Rust not found. Installing Rust ${RUST_VERSION}..."
         brew install rustup-init
-        rustup toolchain install 1.78.0
-        rustup default 1.78.0
+        rustup toolchain install $RUST_VERSION
+        rustup default $RUST_VERSION
     fi
 
-    echo "Installing boringtun 0.5..."
+    echo "Installing WireGuard tools..."
     brew install wireguard-tools
 }
 
@@ -39,12 +40,12 @@ install_linux() {
 
     echo "Checking for Rust installation..."
     if command -v rustc > /dev/null 2>&1; then
-        echo "Rust is installed. Setting to version 1.78..."
-        rustup install 1.78.0
-        rustup default 1.78.0
+        echo "Rust is installed. Setting to version ${RUST_VERSION}..."
+        rustup install $RUST_VERSION
+        rustup default $RUST_VERSION
     else
-        echo "Rust not found. Installing Rust 1.78..."
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.78.0 -y
+        echo "Rust not found. Installing Rust ${RUST_VERSION}..."
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain $RUST_VERSION -y
         . $HOME/.cargo/env
     fi
 
