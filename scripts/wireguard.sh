@@ -2,20 +2,25 @@
 
 export HOMEBREW_NO_AUTO_UPDATE=1
 
-generate_client_ip() {
-    public_key="$1"
+usage() {
+    echo "Usage: $0 [--server | --node]"
+    echo "  --server  Set up as a server (generates its own public key)"
+    echo "  --node    Set up as a client node (asks for server public key)"
+    exit 1
+}
 
-    hash=$(echo -n "$public_key" | sha256sum | cut -c1-4)
-    first_octet=$(printf "%d\n" 0x${hash:0:2})
-    second_octet=$(printf "%d\n" 0x${hash:2:2})
-    client_ip="10.0.$first_octet.$second_octet"
+generate_client_ip() {
+    local public_key="$1"
+    local hash=$(echo -n "$public_key" | sha256sum | cut -c1-4)
+    local first_octet=$(printf "%d\n" 0x${hash:0:2})
+    local second_octet=$(printf "%d\n" 0x${hash:2:2})
+    local client_ip="10.0.$first_octet.$second_octet"
     echo "$client_ip"
 }
 
 install_prompt() {
-    package_name="$1"
-    echo "Do you want to install $package_name? [Y/n]: \c"
-    read response
+    local package_name="$1"
+    read -p "Do you want to install $package_name? [Y/n]: " response
     case "$response" in
         [yY][eE][sS]|[yY]|"")
             return 0
@@ -27,22 +32,44 @@ install_prompt() {
     esac
 }
 
-if ! command -v wg >/dev/null 2>&1; then
+if ! command -v wg &> /dev/null; then
     if install_prompt "WireGuard"; then
-        echo "Installing WireGuard via Homebrew..."
-        brew install wireguard-tools
+        echo "Installing WireGuard..."
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            brew install wireguard-tools
+        else
+            sudo apt-get install -y wireguard-tools
+        fi
     else
         echo "WireGuard is required for this script. Exiting."
         exit 1
     fi
 fi
 
-echo "Generating WireGuard keys..."
-PRIVATE_KEY=$(wg genkey)
-PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
+if [ $# -eq 0 ]; then
+    usage
+fi
 
-echo "Enter the VPN server public key:"
-read SERVER_PUBLIC_KEY
+case "$1" in
+    --server)
+        echo "Setting up as server..."
+        echo "Generating WireGuard keys..."
+        PRIVATE_KEY=$(wg genkey)
+        PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
+        echo "Server public key generated automatically."
+        ;;
+    --node)
+        echo "Setting up as node..."
+        echo "Generating WireGuard keys..."
+        PRIVATE_KEY=$(wg genkey)
+        PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
+        echo "Enter the VPN server's public key:"
+        read SERVER_PUBLIC_KEY
+        ;;
+    *)
+        usage
+        ;;
+esac
 
 echo "Enter the VPN server endpoint (e.g., 123.45.67.89:51820):"
 read SERVER_ENDPOINT
@@ -56,24 +83,37 @@ sudo mkdir -p /etc/wireguard
 
 sudo tee "$WG_CONF_PATH" > /dev/null <<EOF
 [Interface]
+# The private key of this WireGuard client (keep this secret)
 PrivateKey = $PRIVATE_KEY
+
+# The IP address of the client in the VPN
 Address = $CLIENT_IP/24
+
 DNS = 1.1.1.1
 
 [Peer]
-PublicKey = $SERVER_PUBLIC_KEY
+# The public key of the VPN server
+PublicKey = ${SERVER_PUBLIC_KEY:-$PUBLIC_KEY}
+
+# The endpoint of the VPN server
 Endpoint = $SERVER_ENDPOINT
+
+# The allowed IP range for the VPN (route all traffic through the VPN)
 AllowedIPs = 0.0.0.0/0
+
+# Keep the connection alive (useful for clients behind NAT)
 PersistentKeepalive = 25
 EOF
 
 echo "wg0.conf created successfully at $WG_CONF_PATH"
 
 echo "Your WireGuard public key is: $PUBLIC_KEY"
-echo "Provide this public key to the VPN server administrator."
+if [ "$1" = "--node" ]; then
+    echo "Provide this public key to the VPN server administrator."
+fi
 
-if [ "$(uname)" = "Darwin" ]; then
-    echo "Detected MacOS, skipping iptables configuration."
+if [ "$OSTYPE" == "darwin"* ]; then
+    echo "Detected macOS, skipping iptables configuration."
 else
     if install_prompt "Add iptables rules for forwarding traffic"; then
         sudo iptables -A FORWARD -i wg0 -j ACCEPT
@@ -85,4 +125,3 @@ fi
 if install_prompt "Enable and start WireGuard (wg-quick up wg0)"; then
     sudo wg-quick up wg0
 fi
-
