@@ -24,11 +24,12 @@ pub struct Client {
 impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
         let wireguard_config = WireGuardConfig::try_from(config.wireguard())?;
+
         Ok(Self {
             config: config.clone(),
             wireguard_config: Arc::new(Mutex::new(wireguard_config)),
             tcp: TcpStream::connect(&config.remote_addr(InterfaceKind::Tcp)).await?,
-            udp: UdpSocket::bind(&config.remote_addr(InterfaceKind::Udp)).await?,
+            udp: UdpSocket::bind(&config.addr(InterfaceKind::Udp)).await?,
             peer_stream: None,
         })
     }
@@ -82,6 +83,7 @@ impl Client {
         }
 
         tracing::info!("Sending info to STUN server");
+        println!("{}", self.config.remote_addr(InterfaceKind::Udp));
         self.udp
             .send_to(&request, self.config.remote_addr(InterfaceKind::Udp))
             .await?;
@@ -170,7 +172,7 @@ impl Client {
             .public_key
             .clone();
         let endpoint = None;
-        let allowed_ips = Vec::new();
+        let allowed_ips = "".to_string();
         let persistent_keepalive = 1;
 
         let data = bincode::serialize(&WireGuardPeer {

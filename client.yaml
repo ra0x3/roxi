@@ -10,7 +10,7 @@ network:
     ip: "192.168.1.34"
     ports:
       tcp: 8080
-      udp: 56567
+      udp: 5675
 
   stun:
     ip: ~
@@ -20,8 +20,8 @@ network:
     interface: "0.0.0.0"
     ip: "192.168.1.34"
     ports:
-      tcp: 5555
-      udp: 56567
+      tcp: 8081
+      udp: 5677
     max_clients: 10
 
   wireguard:
@@ -37,9 +37,7 @@ network:
       dns: "1.1.1.1"
       peers:
         - public_key: "<ServerPublicKey>"
-          network_size: "32"
-          allowed_ips:
-            - "10.0.0.2"
+          allowed_ips: "10.0.0.2/32"
           endpoint: "<ClientIPAddress>:51820"
           persistent_keep_alive: 25
 

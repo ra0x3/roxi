@@ -81,7 +81,11 @@ impl Server {
     pub fn addr(&self, k: InterfaceKind) -> String {
         match k {
             InterfaceKind::Tcp => format!("{}:{}", self.interface, self.ports.tcp),
-            InterfaceKind::Udp => format!("{}:{}", self.interface, self.ports.udp),
+            InterfaceKind::Udp => {
+                // TODO: Randomly generate this UDP port or nah?
+                let port = 55765;
+                format!("{}:{}", self.interface, port)
+            }
         }
     }
 

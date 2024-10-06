@@ -4,8 +4,7 @@
 
 ## Dependencies
 
-- `rustc 1.78.0`
-- `boringtun 0.5.2`
+- `rustc 1.81.0`
 - `wireguard-tools v1.0`
 - `docker 20.10` (optional)
 

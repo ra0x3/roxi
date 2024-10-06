@@ -9,8 +9,7 @@ use tokio::net::TcpStream;
 #[derive(Debug, Serialize, Deserialize, Default, Hash, Clone)]
 pub struct WireGuardPeer {
     pub public_key: String,
-    pub network_size: String,
-    pub allowed_ips: Vec<IpAddr>,
+    pub allowed_ips: String,
     pub endpoint: Option<String>,
     pub persistent_keepalive: Option<u16>,
 }
@@ -40,8 +39,7 @@ pub struct WgQuick {
 pub struct Boringtun {
     pub private_key: String,
     pub public_key: String,
-    pub network_size: String,
-    pub address: IpAddr,
+    pub address: String,
     pub dns: Option<IpAddr>,
     pub port: u16,
     pub peers: Vec<WireGuardPeer>,

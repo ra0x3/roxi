@@ -250,6 +250,7 @@ impl Server {
                 let server = Arc::clone(&self);
                 let buff = buff[..len].to_vec();
                 tokio::spawn(async move {
+                    tracing::info!("New UDP packets");
                     let _ = server.handle_stun(&buff, addr).await;
                 });
             }

@@ -99,7 +99,7 @@ impl Gateway {
                     .public_key
                     .clone();
 
-                let allowed_ips = Vec::new();
+                let allowed_ips = "".to_string();
                 let endpoint = None;
                 let persistent_keepalive = 1;
                 let data = bincode::serialize(&WireGuardPeer {

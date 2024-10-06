@@ -68,7 +68,7 @@ pub struct WireGuardKeyPair {
 pub struct WireGuardInterface {
     pub private_key: WireGuardKey,
     pub public_key: WireGuardKey,
-    pub address: IpAddr,
+    pub address: String,
     pub port: u16,
     pub dns: Option<IpAddr>,
 }
@@ -166,7 +166,7 @@ impl<'de> Deserialize<'de> for WireGuardInterface {
 #[derive(Debug, Hash, Clone)]
 pub struct WireGuardPeer {
     pub public_key: WireGuardKey,
-    pub allowed_ips: Vec<IpAddr>,
+    pub allowed_ips: String,
     pub endpoint: Option<String>,
     pub persistent_keepalive: Option<u16>,
 }
@@ -286,7 +286,6 @@ impl From<&WireGuardPeer> for WireGuardConfigPeer {
             allowed_ips,
             endpoint,
             persistent_keepalive,
-            network_size: "32".to_string(),
         }
     }
 }
@@ -391,7 +390,7 @@ impl TryFrom<WireGuard> for WireGuardConfig {
 pub struct WireGuardConfigBuilder {
     private_key: Option<WireGuardKey>,
     public_key: Option<WireGuardKey>,
-    address: Option<IpAddr>,
+    address: Option<String>,
     port: Option<u16>,
     dns: Option<IpAddr>,
     peers: Vec<WireGuardPeer>,
@@ -414,7 +413,7 @@ impl WireGuardConfigBuilder {
         self
     }
 
-    pub fn address(mut self, address: IpAddr) -> Self {
+    pub fn address(mut self, address: String) -> Self {
         self.address = Some(address);
         self
     }
