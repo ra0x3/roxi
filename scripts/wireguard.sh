@@ -40,7 +40,7 @@ fi
 
 if ! command -v wg >/dev/null 2>&1; then
     if install_prompt "WireGuard"; then
-	echo "Installing WireGuard"
+        echo "Installing WireGuard"
         if [ "$(uname)" = "Darwin" ]; then
             brew install wireguard-tools
         else
@@ -61,15 +61,14 @@ case "$1" in
     --node)
         PRIVATE_KEY=$(wg genkey)
         PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
-        read SERVER_PUBLIC_KEY
+        read -p "Enter the server's public key: " SERVER_PUBLIC_KEY
         ;;
     *)
         usage
         ;;
 esac
 
-echo "Enter the VPN server endpoint (e.g., 123.45.67.89:51820):"
-read SERVER_ENDPOINT
+read -p "Enter the VPN server endpoint (e.g., 123.45.67.89:51820): " SERVER_ENDPOINT
 
 CLIENT_IP=$(generate_client_ip "$PUBLIC_KEY")
 
@@ -92,6 +91,7 @@ EOF
 
 echo "Your WireGuard public key is: $PUBLIC_KEY"
 
+# Check for macOS and skip iptables configuration
 if [ "$(uname)" = "Darwin" ]; then
     echo "Detected macOS, skipping iptables configuration."
 else
@@ -102,9 +102,13 @@ else
     fi
 fi
 
-
-if install_prompt "Enable and start WireGuard (wg-quick up ${INTERFACE})"; then
-    echo "Bringing up WireGuard on interface ${INTERFACE}"
-    sudo wg-quick up $INTERFACE && sudo wg show $INTERFACE
+# Check if WireGuard interface is already up
+if sudo wg show "$INTERFACE" >/dev/null 2>&1; then
+    echo "Interface $INTERFACE is already up"
+else
+    if install_prompt "Enable and start WireGuard (wg-quick up ${INTERFACE})"; then
+        echo "Bringing up WireGuard on interface ${INTERFACE}"
+        sudo wg-quick up $INTERFACE && sudo wg show $INTERFACE
+    fi
 fi
 
