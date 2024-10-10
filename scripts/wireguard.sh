@@ -3,6 +3,7 @@
 export HOMEBREW_NO_AUTO_UPDATE=1
 
 INTERFACE="wg0"
+PORT=51820
 
 usage() {
     echo "Usage: $0 [--server | --node]"
@@ -91,18 +92,16 @@ EOF
 
 echo "Your WireGuard public key is: $PUBLIC_KEY"
 
-# Check for macOS and skip iptables configuration
 if [ "$(uname)" = "Darwin" ]; then
     echo "Detected macOS, skipping iptables configuration."
 else
     if install_prompt "Add iptables rules for forwarding traffic"; then
-        sudo iptables -A FORWARD -i $INTERFACE -j ACCEPT
-        sudo iptables -A FORWARD -o $INTERFACE -j ACCEPT
-        sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+        sudo iptables -A FORWARD -i $INTERFACE -p udp --dport $PORT -j ACCEPT
+        sudo iptables -A FORWARD -o $INTERFACE -p udp --dport $PORT -j ACCEPT
+        sudo iptables -t nat -A POSTROUTING -o eth0 -p udp --dport $PORT -j MASQUERADE
     fi
 fi
 
-# Check if WireGuard interface is already up
 if sudo wg show "$INTERFACE" >/dev/null 2>&1; then
     echo "Interface $INTERFACE is already up"
 else
@@ -111,4 +110,3 @@ else
         sudo wg-quick up $INTERFACE && sudo wg show $INTERFACE
     fi
 fi
-
