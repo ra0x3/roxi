@@ -4,11 +4,13 @@ export HOMEBREW_NO_AUTO_UPDATE=1
 
 INTERFACE="wg0"
 PORT=51820
+OVERWRITE=false
 
 usage() {
-    echo "Usage: $0 [--server | --node]"
-    echo "  --server  Set up as a server (generates its own public key)"
-    echo "  --node    Set up as a client node (asks for server public key)"
+    echo "Usage: $0 [--server | --node] [--overwrite]"
+    echo "  --server     Set up as a server (generates its own public key)"
+    echo "  --node       Set up as a client node (asks for server public key)"
+    echo "  --overwrite  Overwrite existing configuration"
     exit 1
 }
 
@@ -23,7 +25,7 @@ generate_client_ip() {
 
 install_prompt() {
     local package_name="$1"
-    read -p "Do you want to install $package_name? [Y/n]: " response
+    read -p "Do you want to install/add/enable: $package_name? [Y/n]: " response
     case "$response" in
         [yY][eE][sS]|[yY]|"")
             return 0
@@ -37,6 +39,36 @@ install_prompt() {
 
 if [ $# -eq 0 ]; then
     usage
+fi
+
+for arg in "$@"; do
+    case $arg in
+        --overwrite)
+            OVERWRITE=true
+            shift
+            ;;
+        --server|--node)
+            MODE=$arg
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+WG_CONF_PATH="/etc/wireguard/${INTERFACE}.conf"
+
+if [ -f "$WG_CONF_PATH" ] && [ "$OVERWRITE" = false ]; then
+    echo "Existing configuration found at $WG_CONF_PATH"
+    if sudo wg show "$INTERFACE" >/dev/null 2>&1; then
+        echo "Interface $INTERFACE is already up."
+    else
+        if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
+            echo "Bringing up WireGuard on interface ${INTERFACE}"
+            sudo wg-quick up $INTERFACE && sudo wg show $INTERFACE
+        fi
+    fi
+    exit 0
 fi
 
 if ! command -v wg >/dev/null 2>&1; then
@@ -54,7 +86,7 @@ else
     echo "WireGuard already installed"
 fi
 
-case "$1" in
+case "$MODE" in
     --server)
         PRIVATE_KEY=$(wg genkey)
         PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
@@ -72,8 +104,6 @@ esac
 read -p "Enter the VPN server endpoint (e.g., 123.45.67.89:51820): " SERVER_ENDPOINT
 
 CLIENT_IP=$(generate_client_ip "$PUBLIC_KEY")
-
-WG_CONF_PATH="/etc/wireguard/${INTERFACE}.conf"
 
 sudo mkdir -p /etc/wireguard
 
@@ -95,18 +125,14 @@ echo "Your WireGuard public key is: $PUBLIC_KEY"
 if [ "$(uname)" = "Darwin" ]; then
     echo "Detected macOS, skipping iptables configuration."
 else
-    if install_prompt "Add iptables rules for forwarding traffic"; then
+    if install_prompt "iptables rules for forwarding traffic"; then
         sudo iptables -A FORWARD -i $INTERFACE -p udp --dport $PORT -j ACCEPT
         sudo iptables -A FORWARD -o $INTERFACE -p udp --dport $PORT -j ACCEPT
         sudo iptables -t nat -A POSTROUTING -o eth0 -p udp --dport $PORT -j MASQUERADE
     fi
 fi
 
-if sudo wg show "$INTERFACE" >/dev/null 2>&1; then
-    echo "Interface $INTERFACE is already up"
-else
-    if install_prompt "Enable and start WireGuard (wg-quick up ${INTERFACE})"; then
-        echo "Bringing up WireGuard on interface ${INTERFACE}"
-        sudo wg-quick up $INTERFACE && sudo wg show $INTERFACE
-    fi
+if install_prompt "Enable and start WireGuard (wg-quick up ${INTERFACE})"; then
+    echo "Bringing up WireGuard on interface ${INTERFACE}"
+    sudo wg-quick up $INTERFACE && sudo wg show $INTERFACE
 fi
