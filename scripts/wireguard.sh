@@ -10,6 +10,7 @@ usage() {
     echo "Usage: $0 [--server | --node | --uninstall]"
     echo "  --server    Set up as a server (generates its own public key)"
     echo "  --node      Set up as a client node (asks for server public key)"
+    echo "  --overwrite  Overwrite existing configuration"
     echo "  --uninstall Remove WireGuard and all configuration files"
     exit 1
 }
@@ -78,7 +79,6 @@ done
 
 WG_CONF_PATH="/etc/wireguard/${INTERFACE}.conf"
 
-# Check for WireGuard installation
 if ! command -v wg >/dev/null 2>&1; then
     if install_prompt "WireGuard"; then
         echo "Installing WireGuard"
@@ -120,27 +120,13 @@ Address = $CLIENT_IP/24
 # DNS = 8.8.8.8
 EOF
 
-    if [ "$MODE" = "node" ]; then
-        read -p "Enter the server's public key: " SERVER_PUBLIC_KEY
-        read -p "Enter the VPN server endpoint (e.g., 123.45.67.89:51820): " SERVER_ENDPOINT
-
-        sudo tee -a "$WG_CONF_PATH" > /dev/null <<EOF
-
-[Peer]
-PublicKey = $SERVER_PUBLIC_KEY
-Endpoint = $SERVER_ENDPOINT
-AllowedIPs = 10.0.0.0/24, 172.16.0.0/12, 192.168.0.0/16
-PersistentKeepalive = 25
-EOF
-    fi
-
     echo "WireGuard configuration created at $WG_CONF_PATH"
     echo "Your WireGuard public key is: $PUBLIC_KEY"
 
     if [ "$(uname)" = "Darwin" ]; then
         echo "Detected macOS, skipping iptables configuration."
     else
-        if [ "$MODE" = "server" ] && install_prompt "iptables rules for forwarding traffic"; then
+        if [ "$MODE" = "--server" ] && install_prompt "iptables rules for forwarding traffic"; then
             sudo iptables -A FORWARD -i $INTERFACE -j ACCEPT
             sudo iptables -A FORWARD -o $INTERFACE -j ACCEPT
             sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
@@ -148,7 +134,7 @@ EOF
         fi
     fi
 
-    if install_prompt "Enable and start WireGuard (wg-quick up ${INTERFACE})"; then
+    if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
         echo "Bringing up WireGuard on interface ${INTERFACE}"
         sudo wg-quick up $INTERFACE && sudo wg show $INTERFACE
     fi
