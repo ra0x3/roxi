@@ -7,10 +7,10 @@ PORT=51820
 OVERWRITE=false
 
 usage() {
-    echo "Usage: $0 [--server | --node] [--overwrite]"
-    echo "  --server     Set up as a server (generates its own public key)"
-    echo "  --node       Set up as a client node (asks for server public key)"
-    echo "  --overwrite  Overwrite existing configuration"
+    echo "Usage: $0 [--server | --node | --uninstall]"
+    echo "  --server    Set up as a server (generates its own public key)"
+    echo "  --node      Set up as a client node (asks for server public key)"
+    echo "  --uninstall Remove WireGuard and all configuration files"
     exit 1
 }
 
@@ -37,8 +37,28 @@ install_prompt() {
     esac
 }
 
+uninstall_wireguard() {
+    echo "Uninstalling WireGuard and removing configuration files."
+
+    if [ "$(uname)" = "Darwin" ]; then
+        brew uninstall wireguard-tools
+    else
+        sudo apt-get remove -y wireguard-tools
+    fi
+
+    echo "Removing WireGuard configuration files."
+    sudo rm -rf /etc/wireguard
+    echo "WireGuard uninstalled and configuration files removed."
+    exit 0
+}
+
 if [ $# -eq 0 ]; then
     usage
+fi
+
+if [ "$1" = "--uninstall" ]; then
+    uninstall_wireguard
+    exit 0
 fi
 
 for arg in "$@"; do
