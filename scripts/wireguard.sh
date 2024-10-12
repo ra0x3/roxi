@@ -58,6 +58,23 @@ done
 
 WG_CONF_PATH="/etc/wireguard/${INTERFACE}.conf"
 
+# Check for WireGuard installation
+if ! command -v wg >/dev/null 2>&1; then
+    if install_prompt "WireGuard"; then
+        echo "Installing WireGuard"
+        if [ "$(uname)" = "Darwin" ]; then
+            brew install wireguard-tools
+        else
+            sudo apt-get install -y wireguard-tools
+        fi
+    else
+        echo "WireGuard is required to proceed. Exiting."
+        exit 1
+    fi
+else
+    echo "WireGuard is already installed"
+fi
+
 if [ -f "$WG_CONF_PATH" ] && [ "$OVERWRITE" = false ]; then
     echo "Existing configuration found at $WG_CONF_PATH"
     if sudo wg show "$INTERFACE" >/dev/null 2>&1; then
@@ -69,65 +86,45 @@ if [ -f "$WG_CONF_PATH" ] && [ "$OVERWRITE" = false ]; then
         fi
     fi
     exit 0
-else
-    if ! command -v wg >/dev/null 2>&1; then
-        if install_prompt "WireGuard"; then
-            echo "Installing WireGuard"
-            if [ "$(uname)" = "Darwin" ]; then
-                brew install wireguard-tools
-            else
-                sudo apt-get install -y wireguard-tools
-            fi
-        else
-            exit 1
-        fi
-    else
-        echo "WireGuard already installed"
-    fi
+fi
 
-    case "$MODE" in
-        --server)
-            PRIVATE_KEY=$(wg genkey)
-            PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
-            ;;
-        --node)
-            PRIVATE_KEY=$(wg genkey)
-            PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
-            read -p "Enter the server's public key: " SERVER_PUBLIC_KEY
-            ;;
-        *)
-            usage
-            ;;
-    esac
-
-    read -p "Enter the VPN server endpoint (e.g., 123.45.67.89:51820): " SERVER_ENDPOINT
-
+if [ "$OVERWRITE" = true ] || [ ! -f "$WG_CONF_PATH" ]; then
+    PRIVATE_KEY=$(wg genkey)
+    PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
     CLIENT_IP=$(generate_client_ip "$PUBLIC_KEY")
-
-    sudo mkdir -p /etc/wireguard
 
     sudo tee "$WG_CONF_PATH" > /dev/null <<EOF
 [Interface]
 PrivateKey = $PRIVATE_KEY
 Address = $CLIENT_IP/24
-DNS = 1.1.1.1
-
-[Peer]
-PublicKey = ${SERVER_PUBLIC_KEY:-$PUBLIC_KEY}
-Endpoint = $SERVER_ENDPOINT
-AllowedIPs = 0.0.0.0/0
-PersistentKeepalive = 25
+# DNS = 8.8.8.8
 EOF
 
+    if [ "$MODE" = "node" ]; then
+        read -p "Enter the server's public key: " SERVER_PUBLIC_KEY
+        read -p "Enter the VPN server endpoint (e.g., 123.45.67.89:51820): " SERVER_ENDPOINT
+
+        sudo tee -a "$WG_CONF_PATH" > /dev/null <<EOF
+
+[Peer]
+PublicKey = $SERVER_PUBLIC_KEY
+Endpoint = $SERVER_ENDPOINT
+AllowedIPs = 10.0.0.0/24, 172.16.0.0/12, 192.168.0.0/16
+PersistentKeepalive = 25
+EOF
+    fi
+
+    echo "WireGuard configuration created at $WG_CONF_PATH"
     echo "Your WireGuard public key is: $PUBLIC_KEY"
 
     if [ "$(uname)" = "Darwin" ]; then
         echo "Detected macOS, skipping iptables configuration."
     else
-        if install_prompt "iptables rules for forwarding traffic"; then
-            sudo iptables -A FORWARD -i $INTERFACE -p udp --dport $PORT -j ACCEPT
-            sudo iptables -A FORWARD -o $INTERFACE -p udp --dport $PORT -j ACCEPT
-            sudo iptables -t nat -A POSTROUTING -o eth0 -p udp --dport $PORT -j MASQUERADE
+        if [ "$MODE" = "server" ] && install_prompt "iptables rules for forwarding traffic"; then
+            sudo iptables -A FORWARD -i $INTERFACE -j ACCEPT
+            sudo iptables -A FORWARD -o $INTERFACE -j ACCEPT
+            sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+            echo "iptables rules added for forwarding traffic."
         fi
     fi
 
