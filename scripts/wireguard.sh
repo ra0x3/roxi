@@ -7,11 +7,10 @@ PORT=51820
 OVERWRITE=false
 
 usage() {
-    echo "Usage: $0 [--server | --node | --uninstall]"
-    echo "  --server    Set up as a server (generates its own public key)"
-    echo "  --node      Set up as a client node (asks for server public key)"
+    echo "Usage: $0 [--overwrite | --uninstall | --interface <name>]"
     echo "  --overwrite  Overwrite existing configuration"
-    echo "  --uninstall Remove WireGuard and all configuration files"
+    echo "  --uninstall  Remove WireGuard and all configuration files"
+    echo "  --interface <name>  Specify the interface name (default: wg0)"
     exit 1
 }
 
@@ -43,12 +42,12 @@ uninstall_wireguard() {
 
     if [ "$(uname)" = "Darwin" ]; then
         brew uninstall wireguard-tools
+        sudo rm -rf /opt/homebrew/etc/wireguard
     else
         sudo apt-get remove -y wireguard-tools
+        sudo rm -rf /etc/wireguard
     fi
 
-    echo "Removing WireGuard configuration files."
-    sudo rm -rf /etc/wireguard
     echo "WireGuard uninstalled and configuration files removed."
     exit 0
 }
@@ -62,14 +61,23 @@ if [ "$1" = "--uninstall" ]; then
     exit 0
 fi
 
-for arg in "$@"; do
-    case $arg in
+while [ $# -gt 0 ]; do
+    case $1 in
         --overwrite)
             OVERWRITE=true
             shift
             ;;
-        --server|--node)
-            MODE=$arg
+        --uninstall)
+            uninstall_wireguard
+            exit 0
+            ;;
+        --interface)
+            if [ -z "$2" ]; then
+                echo "Error: --interface requires an argument."
+                usage
+            fi
+            INTERFACE="$2"
+            shift 2
             ;;
         *)
             usage
@@ -77,13 +85,19 @@ for arg in "$@"; do
     esac
 done
 
-WG_CONF_PATH="/etc/wireguard/${INTERFACE}.conf"
+if [ "$(uname)" = "Darwin" ]; then
+    WG_CONF_PATH="/opt/homebrew/etc/wireguard/${INTERFACE}.conf"
+    WG_QUICK="/opt/homebrew/bin/bash /opt/homebrew/bin/wg-quick"
+else
+    WG_CONF_PATH="/etc/wireguard/${INTERFACE}.conf"
+    WG_QUICK="wg-quick"
+fi
 
 if ! command -v wg >/dev/null 2>&1; then
     if install_prompt "WireGuard"; then
         echo "Installing WireGuard"
         if [ "$(uname)" = "Darwin" ]; then
-            brew install wireguard-tools
+            brew install wireguard-tools && brew install bash
         else
             sudo apt-get install -y wireguard-tools
         fi
@@ -102,7 +116,7 @@ if [ -f "$WG_CONF_PATH" ] && [ "$OVERWRITE" = false ]; then
     else
         if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
             echo "Bringing up WireGuard on interface ${INTERFACE}"
-            sudo wg-quick up $INTERFACE && sudo wg show $INTERFACE
+            sudo $WG_QUICK up $INTERFACE && sudo wg show $INTERFACE
         fi
     fi
     exit 0
@@ -113,11 +127,11 @@ if [ "$OVERWRITE" = true ] || [ ! -f "$WG_CONF_PATH" ]; then
     PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
     CLIENT_IP=$(generate_client_ip "$PUBLIC_KEY")
 
+    sudo mkdir -p "$(dirname "$WG_CONF_PATH")"
     sudo tee "$WG_CONF_PATH" > /dev/null <<EOF
 [Interface]
 PrivateKey = $PRIVATE_KEY
 Address = $CLIENT_IP/24
-# DNS = 8.8.8.8
 EOF
 
     echo "WireGuard configuration created at $WG_CONF_PATH"
@@ -126,7 +140,7 @@ EOF
     if [ "$(uname)" = "Darwin" ]; then
         echo "Detected macOS, skipping iptables configuration."
     else
-        if [ "$MODE" = "--server" ] && install_prompt "iptables rules for forwarding traffic"; then
+        if install_prompt "iptables rules for forwarding traffic"; then
             sudo iptables -A FORWARD -i $INTERFACE -j ACCEPT
             sudo iptables -A FORWARD -o $INTERFACE -j ACCEPT
             sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
@@ -136,6 +150,6 @@ EOF
 
     if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
         echo "Bringing up WireGuard on interface ${INTERFACE}"
-        sudo wg-quick up $INTERFACE && sudo wg show $INTERFACE
+        sudo $WG_QUICK up $INTERFACE && sudo wg show $INTERFACE
     fi
 fi
