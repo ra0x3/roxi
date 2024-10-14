@@ -1,7 +1,7 @@
 use crate::{config::Config, error::ServerError, session::SessionManager, ServerResult};
 use async_std::sync::Arc;
 use roxi_client::Config as ClientConfig;
-use roxi_lib::types::{Address, ClientId, InterfaceKind, StunAddressKind, StunInfo};
+use roxi_lib::types::{ClientId, InterfaceKind, StunAddressKind, StunInfo};
 use roxi_proto::{Message, MessageKind, MessageStatus};
 use std::{
     collections::HashMap,
@@ -122,10 +122,13 @@ impl Server {
                 )
                 .await?;
 
-                // FIXME: Get a random peer that isn't this peer
-                // let peer_addr = self.client_sessions.get_peer_for_gateway().await;
-                let peer_addr = Address::from([192, 168, 1, 1, 16, 10]);
-                let peer_client = ClientId::from("192.168.1.1:1610");
+                let peer_addr = self
+                    .client_sessions
+                    .get_peer_for_gateway(&client_id)
+                    .await?;
+
+                let peer_client = ClientId::from(peer_addr.clone());
+
                 let peer_stream = self
                     .client_streams
                     .read()
@@ -154,6 +157,25 @@ impl Server {
                         peer_addr.into(),
                     ),
                     peer_stream.clone(),
+                )
+                .await?;
+            }
+            MessageKind::SeedRequest => {
+                self.ensure_authenticated(
+                    &client_id,
+                    MessageKind::SeedRequest,
+                    stream.clone(),
+                )
+                .await?;
+                self.send(
+                    &client_id,
+                    Message::new(
+                        MessageKind::SeedResponse,
+                        MessageStatus::r#Ok,
+                        self.config.remote_addr(InterfaceKind::Tcp),
+                        None,
+                    ),
+                    stream.clone(),
                 )
                 .await?;
             }

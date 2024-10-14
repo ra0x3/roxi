@@ -2,6 +2,9 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ServerError {
+    #[error("Anyhow error: {0}")]
+    Anyhow(#[from] anyhow::Error),
+
     #[error("AddrParseError: {0}")]
     AddrParse(#[from] std::net::AddrParseError),
 
@@ -46,4 +49,7 @@ pub enum ServerError {
 
     #[error("Client error: {0}")]
     Client(#[from] roxi_client::ClientError),
+
+    #[error("No available peers")]
+    NoAvailablePeers,
 }

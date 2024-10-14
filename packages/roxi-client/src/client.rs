@@ -93,6 +93,21 @@ impl Client {
         Ok(())
     }
 
+    pub async fn seed(&mut self) -> ClientResult<()> {
+        self.ping().await?;
+        self.authenticate().await?;
+
+        let _msg = self
+            .send(Message::new(
+                MessageKind::SeedRequest,
+                MessageStatus::Pending,
+                self.config.remote_addr(InterfaceKind::Tcp),
+                None,
+            ))
+            .await?;
+        Ok(())
+    }
+
     pub async fn request_stun_info(&mut self) -> ClientResult<()> {
         let _msg = self
             .send(Message::new(

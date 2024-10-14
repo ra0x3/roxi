@@ -4,5 +4,6 @@ pub(crate) mod gateway;
 pub(crate) mod hello;
 pub(crate) mod ping;
 pub(crate) mod quick;
+pub(crate) mod seed;
 pub(crate) mod serve;
 pub(crate) mod stun;

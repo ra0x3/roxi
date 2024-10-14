@@ -1,5 +1,5 @@
 pub(crate) use crate::command::{
-    auth, connect, gateway, hello, ping, quick, serve, stun,
+    auth, connect, gateway, hello, ping, quick, seed, serve, stun,
 };
 use clap::{Parser, Subcommand};
 
@@ -29,6 +29,8 @@ pub enum RoxiCli {
     Gateway(gateway::Args),
     #[clap(name = "quick", about = "Run wg-quick")]
     Quick(quick::Args),
+    #[clap(name = "seed", about = "Seed client")]
+    Seed(seed::Args),
 }
 
 pub async fn run_cli() -> Result<(), anyhow::Error> {
@@ -43,5 +45,6 @@ pub async fn run_cli() -> Result<(), anyhow::Error> {
         RoxiCli::Stun(command) => stun::exec(command).await,
         RoxiCli::Gateway(command) => gateway::exec(command).await,
         RoxiCli::Quick(command) => quick::exec(command).await,
+        RoxiCli::Seed(command) => seed::exec(command).await,
     }
 }

@@ -81,6 +81,16 @@ impl Address {
     }
 }
 
+impl TryFrom<String> for Address {
+    type Error = anyhow::Error;
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        let mut parts = s.split(":");
+        let ip: Ipv4Addr = parts.next().unwrap().parse().unwrap();
+        let port: u16 = parts.next().unwrap().parse().unwrap();
+        Ok(Self { ip, port })
+    }
+}
+
 impl std::fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}", self.ip, self.port)

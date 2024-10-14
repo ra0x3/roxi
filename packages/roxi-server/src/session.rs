@@ -3,13 +3,14 @@ use crate::{
     ServerResult,
 };
 use async_std::sync::{Arc, RwLock};
+use rand::{seq::SliceRandom, thread_rng};
 use roxi_client::Config as ClientConfig;
-use roxi_lib::types::ClientId;
+use roxi_lib::types::{Address, ClientId, InterfaceKind};
 use std::collections::HashMap;
 use std::time::SystemTime;
 use tokio::time::{self, Duration};
 
-#[derive(Debug, Hash)]
+#[derive(Debug, Hash, Clone)]
 pub struct Session {
     time: SystemTime,
     expiry: Duration,
@@ -28,6 +29,12 @@ impl Session {
     pub fn is_idle(&self) -> bool {
         // TODO: Implement this
         false
+    }
+
+    pub fn gateway_remote_addr(&self) -> ServerResult<Address> {
+        let addr =
+            Address::try_from(self.config.gateway_remote_addr(InterfaceKind::Tcp))?;
+        Ok(addr)
     }
 
     #[allow(unused)]
@@ -73,9 +80,25 @@ impl SessionManager {
         self.sessions.read().await.contains_key(client_id)
     }
 
-    #[allow(unused)]
-    pub async fn get_peer_for_gateway(&self) {
-        todo!()
+    pub async fn get_peer_for_gateway(&self, other: &ClientId) -> ServerResult<Address> {
+        let items = self
+            .sessions
+            .read()
+            .await
+            .iter()
+            .filter_map(|(k, v)| {
+                if k != other {
+                    return Some(v.clone());
+                }
+                None
+            })
+            .collect::<Vec<Session>>();
+        let mut rng = thread_rng();
+        if let Some(session) = items.choose(&mut rng).cloned() {
+            return session.gateway_remote_addr();
+        }
+
+        Err(ServerError::NoAvailablePeers)
     }
 
     #[allow(unused)]

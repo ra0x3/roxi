@@ -14,3 +14,7 @@ description = "Roxi"
 anyhow = { workspace = true }
 roxi-cli = { path = "../roxi-cli" }
 tokio = { workspace = true }
+
+[features]
+mac = []
+linux = []
