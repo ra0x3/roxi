@@ -126,8 +126,20 @@ if [ "$OVERWRITE" = true ] || [ ! -f "$WG_CONF_PATH" ]; then
     sudo mkdir -p "$(dirname "$WG_CONF_PATH")"
     sudo tee "$WG_CONF_PATH" > /dev/null <<EOF
 [Interface]
-PrivateKey = $PRIVATE_KEY
-Address = $CLIENT_IP/24
+# The private key of the WireGuard server (keep this secret)
+PrivateKey = "$PRIVATE_KEY"
+
+# The IP address and subnet of the WireGuard interface on the server
+Address = "$CLIENT_IP/24"
+
+# The UDP port on which WireGuard will listen
+ListenPort = 51820
+
+# Optional: Firewall settings to allow traffic
+# PostUp and PostDown run commands after the interface is brought up or down
+# PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+# PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+
 EOF
 
     echo "WireGuard configuration created at $WG_CONF_PATH"

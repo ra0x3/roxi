@@ -295,12 +295,19 @@ pub struct WireGuardConfig {
     #[serde(rename = "Interface")]
     pub interface: WireGuardInterface,
     #[serde(rename = "Peer")]
-    pub peers: Vec<WireGuardPeer>,
+    pub peers: Option<Vec<WireGuardPeer>>,
 }
 
 impl WireGuardConfig {
     pub fn add_peer(&mut self, p: WireGuardPeer) {
-        self.peers.push(p)
+        match self.peers {
+            Some(ref mut peers) => {
+                peers.push(p);
+            }
+            None => {
+                self.peers = Some(vec![p]);
+            }
+        }
     }
 
     pub fn save<P: AsRef<Path>>(&self, p: P) -> ProtoResult<()> {
@@ -373,10 +380,12 @@ impl TryFrom<WireGuard> for WireGuardConfig {
                             address,
                             port,
                         },
-                        peers: peers
-                            .iter()
-                            .map(|p| WireGuardPeer::from(p.to_owned()))
-                            .collect::<Vec<WireGuardPeer>>(),
+                        peers: Some(
+                            peers
+                                .iter()
+                                .map(|p| WireGuardPeer::from(p.to_owned()))
+                                .collect::<Vec<WireGuardPeer>>(),
+                        ),
                     })
                 } else {
                     Err(ProtoError::MalformedConfig)
@@ -393,7 +402,7 @@ pub struct WireGuardConfigBuilder {
     address: Option<String>,
     port: Option<u16>,
     dns: Option<IpAddr>,
-    peers: Vec<WireGuardPeer>,
+    peers: Option<Vec<WireGuardPeer>>,
 }
 
 impl WireGuardConfigBuilder {
@@ -429,12 +438,19 @@ impl WireGuardConfigBuilder {
     }
 
     pub fn peer(mut self, peer: WireGuardPeer) -> Self {
-        self.peers.push(peer);
+        match self.peers {
+            Some(ref mut p) => {
+                p.push(peer);
+            }
+            None => {
+                vec![peer];
+            }
+        }
         self
     }
 
     pub fn peers(mut self, peers: Vec<WireGuardPeer>) -> Self {
-        self.peers = peers;
+        self.peers = Some(peers);
         self
     }
 
