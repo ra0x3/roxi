@@ -52,10 +52,6 @@ uninstall_wireguard() {
     exit 0
 }
 
-if [ $# -eq 0 ]; then
-    usage
-fi
-
 if [ "$1" = "--uninstall" ]; then
     uninstall_wireguard
     exit 0
