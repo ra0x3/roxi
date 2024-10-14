@@ -97,7 +97,7 @@ impl SessionManager {
     }
 
     pub async fn monitor(&self) {
-        let mut interval = time::interval(Duration::from_secs(10));
+        let mut interval = time::interval(Duration::from_secs(30));
         loop {
             interval.tick().await;
             tracing::info!("Pruning idle sessions");
