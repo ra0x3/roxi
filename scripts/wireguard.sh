@@ -6,11 +6,16 @@ INTERFACE="wg0"
 PORT=51820
 OVERWRITE=false
 
+YELLOW='\033[1;33m'
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+NC='\033[0m' # No Color
+
 usage() {
-    echo "Usage: $0 [--overwrite | --uninstall | --interface <name>]"
-    echo "  --overwrite  Overwrite existing configuration"
-    echo "  --uninstall  Remove WireGuard and all configuration files"
-    echo "  --interface <name>  Specify the interface name (default: wg0)"
+    echo -e "${YELLOW}Usage: $0 [--overwrite | --uninstall | --interface <name>]${NC}"
+    echo -e "${YELLOW}  --overwrite  Overwrite existing configuration${NC}"
+    echo -e "${YELLOW}  --uninstall  Remove WireGuard and all configuration files${NC}"
+    echo -e "${YELLOW}  --interface <name>  Specify the interface name (default: wg0)${NC}"
     exit 1
 }
 
@@ -31,14 +36,14 @@ install_prompt() {
             return 0
             ;;
         *)
-            echo "$package_name installation skipped."
+            echo -e "${YELLOW}$package_name installation skipped.${NC}"
             return 1
             ;;
     esac
 }
 
 uninstall_wireguard() {
-    echo "Uninstalling WireGuard and removing configuration files."
+    echo -e "${GREEN}Uninstalling WireGuard and removing configuration files.${NC}"
 
     if [ "$(uname)" = "Darwin" ]; then
         brew uninstall wireguard-tools
@@ -48,7 +53,7 @@ uninstall_wireguard() {
         sudo rm -rf /etc/wireguard
     fi
 
-    echo "WireGuard uninstalled and configuration files removed."
+    echo -e "${GREEN}WireGuard uninstalled and configuration files removed.${NC}"
     exit 0
 }
 
@@ -69,7 +74,7 @@ while [ $# -gt 0 ]; do
             ;;
         --interface)
             if [ -z "$2" ]; then
-                echo "Error: --interface requires an argument."
+                echo -e "${RED}Error: --interface requires an argument.${NC}"
                 usage
             fi
             INTERFACE="$2"
@@ -91,27 +96,27 @@ fi
 
 if ! command -v wg >/dev/null 2>&1; then
     if install_prompt "WireGuard"; then
-        echo "Installing WireGuard"
+        echo -e "${GREEN}Installing WireGuard${NC}"
         if [ "$(uname)" = "Darwin" ]; then
             brew install wireguard-tools && brew install bash
         else
             sudo apt-get install -y wireguard-tools
         fi
     else
-        echo "WireGuard is required to proceed. Exiting."
+        echo -e "${RED}WireGuard is required to proceed. Exiting.${NC}"
         exit 1
     fi
 else
-    echo "WireGuard is already installed"
+    echo -e "${GREEN}WireGuard is already installed${NC}"
 fi
 
 if [ -f "$WG_CONF_PATH" ] && [ "$OVERWRITE" = false ]; then
-    echo "Existing configuration found at $WG_CONF_PATH"
+    echo -e "${GREEN}Existing configuration found at $WG_CONF_PATH${NC}"
     if sudo wg show "$INTERFACE" >/dev/null 2>&1; then
-        echo "Interface $INTERFACE is already up."
+        echo -e "${GREEN}Interface $INTERFACE is already up.${NC}"
     else
         if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
-            echo "Bringing up WireGuard on interface ${INTERFACE}"
+            echo -e "${GREEN}Bringing up WireGuard on interface ${INTERFACE}${NC}"
             sudo $WG_QUICK up $INTERFACE && sudo wg show $INTERFACE
         fi
     fi
@@ -142,22 +147,22 @@ ListenPort = 51820
 
 EOF
 
-    echo "WireGuard configuration created at $WG_CONF_PATH"
-    echo "Your WireGuard public key is: $PUBLIC_KEY"
+    echo -e "${GREEN}WireGuard configuration created at $WG_CONF_PATH${NC}"
+    echo -e "${GREEN}Your WireGuard public key is: $PUBLIC_KEY${NC}"
 
     if [ "$(uname)" = "Darwin" ]; then
-        echo "Detected macOS, skipping iptables configuration."
+        echo -e "${YELLOW}Detected macOS, skipping iptables configuration.${NC}"
     else
         if install_prompt "iptables rules for forwarding traffic"; then
             sudo iptables -A FORWARD -i $INTERFACE -j ACCEPT
             sudo iptables -A FORWARD -o $INTERFACE -j ACCEPT
             sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-            echo "iptables rules added for forwarding traffic."
+            echo -e "${GREEN}iptables rules added for forwarding traffic.${NC}"
         fi
     fi
 
     if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
-        echo "Bringing up WireGuard on interface ${INTERFACE}"
+        echo -e "${GREEN}Bringing up WireGuard on interface ${INTERFACE}${NC}"
         sudo $WG_QUICK up $INTERFACE && sudo wg show $INTERFACE
     fi
 fi
