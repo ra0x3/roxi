@@ -177,6 +177,9 @@ impl Server {
                     .write()
                     .await
                     .insert(client_id.clone(), stream.clone());
+
+                let clients = self.client_streams.read().await;
+                tracing::info!("Seeded clients: {:?}", clients);
                 self.send(
                     &client_id,
                     Message::new(

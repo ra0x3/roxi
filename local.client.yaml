@@ -1,4 +1,4 @@
-path: /home/ubuntu/roxi/client.yaml
+path: /Users/rashad/dev/repos/roxi/client.yaml
 
 network:
   nat:
@@ -7,7 +7,7 @@ network:
 
   server:
     interface: "0.0.0.0"
-    ip: "18.117.198.57"
+    ip: "192.168.1.228"
     ports:
       tcp: 8080
       udp: 5675
@@ -27,7 +27,7 @@ network:
   wireguard:
     type: "wgquick" # wg-quick/boringtun
     wgquick:
-      config: "/home/ubuntu/roxi/wg0.test.conf"
+      config: "/Users/rashad/dev/repos/roxi/wg0.test.conf"
     boringtun:
       private_key: "<ServerPrivateKey>"
       public_key: "<ServerPublicKey>"
