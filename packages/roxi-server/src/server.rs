@@ -101,6 +101,8 @@ impl Server {
                 )
                 .await?;
 
+                // TODO: Move stream caching into SeedRequest handler
+                // as authenticating and becoming a peer should be different actions
                 self.client_streams
                     .write()
                     .await
@@ -167,6 +169,14 @@ impl Server {
                     stream.clone(),
                 )
                 .await?;
+
+                // TODO: Remove stream caching from AuthenticationRequest handler,
+                // as becoming a seeder and simply authenticating should not be treated
+                // as the same action
+                self.client_streams
+                    .write()
+                    .await
+                    .insert(client_id.clone(), stream.clone());
                 self.send(
                     &client_id,
                     Message::new(

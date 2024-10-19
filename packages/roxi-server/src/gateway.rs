@@ -128,7 +128,7 @@ impl Gateway {
                         &client_id,
                         Message::new(
                             MessageKind::NATPunchResponse,
-                            MessageStatus::Forbidden,
+                            MessageStatus::Unauthorized,
                             self.config.stun_addr().expect("STUN address required"),
                             None,
                         ),

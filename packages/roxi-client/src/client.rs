@@ -94,9 +94,6 @@ impl Client {
     }
 
     pub async fn seed(&mut self) -> ClientResult<()> {
-        self.ping().await?;
-        self.authenticate().await?;
-
         let _msg = self
             .send(Message::new(
                 MessageKind::SeedRequest,
@@ -105,6 +102,8 @@ impl Client {
                 None,
             ))
             .await?;
+
+        tracing::info!("Successfully seeded client connection");
         Ok(())
     }
 
@@ -250,6 +249,8 @@ impl Client {
             }
             return Ok(Some(msg));
         }
+
+        tracing::info!("No data in response");
 
         Ok(None)
     }

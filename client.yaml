@@ -7,7 +7,8 @@ network:
 
   server:
     interface: "0.0.0.0"
-    ip: "18.117.198.57"
+      #    ip: "18.117.198.57"
+    ip: "192.168.1.228"
     ports:
       tcp: 8080
       udp: 5675
