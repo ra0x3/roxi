@@ -20,8 +20,10 @@ INTERFACE=${1:-wg0}
 
 if [ "$(uname)" = "Darwin" ]; then
     CONFIG_DIR="/opt/homebrew/etc/wireguard"
+    WG_QUICK="/opt/homebrew/bin/bash /opt/homebrew/bin/wg-quick"
 else
     CONFIG_DIR="/etc/wireguard"
+    WG_QUICK="wg-quick"
 fi
 
 CONFIG_FILE="$CONFIG_DIR/$INTERFACE.conf"
@@ -33,7 +35,7 @@ fi
 
 echo "${GREEN}Bringing down WireGuard interface '$INTERFACE'...${NC}"
 
-sudo wg-quick down "$INTERFACE"
+sudo $WG_QUICK down "$INTERFACE"
 if [ $? -eq 0 ]; then
     echo "${GREEN}Successfully brought down interface '$INTERFACE'.${NC}"
 else
