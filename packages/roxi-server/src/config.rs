@@ -1,5 +1,5 @@
 use crate::{error::ServerError, ServerResult};
-use roxi_lib::types::{InterfaceKind, SharedKey, WireGuard};
+use roxi_lib::types::{config::WireGuard, InterfaceKind, SharedKey};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,

@@ -1,7 +1,5 @@
 use crate::{command, ProtoError, ProtoResult};
-use roxi_lib::types::{
-    Boringtun, ToolType, WgQuick, WireGuard, WireGuardPeer as WireGuardConfigPeer,
-};
+use roxi_lib::types::config::{self, Boringtun, ToolType, WgQuick};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     fmt,
@@ -255,9 +253,9 @@ impl<'de> Deserialize<'de> for WireGuardPeer {
     }
 }
 
-impl From<WireGuardConfigPeer> for WireGuardPeer {
-    fn from(p: WireGuardConfigPeer) -> Self {
-        let WireGuardConfigPeer {
+impl From<config::WireGuardPeer> for WireGuardPeer {
+    fn from(p: config::WireGuardPeer) -> Self {
+        let config::WireGuardPeer {
             public_key,
             allowed_ips,
             endpoint,
@@ -273,7 +271,7 @@ impl From<WireGuardConfigPeer> for WireGuardPeer {
     }
 }
 
-impl From<&WireGuardPeer> for WireGuardConfigPeer {
+impl From<&WireGuardPeer> for config::WireGuardPeer {
     fn from(p: &WireGuardPeer) -> Self {
         let WireGuardPeer {
             public_key,
@@ -344,10 +342,10 @@ impl TryFrom<&Path> for WireGuardConfig {
     }
 }
 
-impl TryFrom<WireGuard> for WireGuardConfig {
+impl TryFrom<config::WireGuard> for WireGuardConfig {
     type Error = ProtoError;
-    fn try_from(w: WireGuard) -> Result<Self, Self::Error> {
-        let WireGuard {
+    fn try_from(w: config::WireGuard) -> Result<Self, Self::Error> {
+        let config::WireGuard {
             r#type,
             boringtun,
             wgquick,
