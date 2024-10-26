@@ -110,10 +110,18 @@ Mac OS
 cp wg0.conf /opt/homebrew/etc/wireguard/
 ```
 
-Generate Wireguard keys
+#### Generate Wireguard keys
+
+Mac OS
 
 ```sh
-sudo wg genkey | sudo tee /etc/wireguard/privatekey | sudo wg pubkey | sudo tee /etc/wireguard/publickey
+sudo wg genkey | tee /opt/homebrew/etc/wireguard/privatekey | wg pubkey | tee /opt/homebrew/etc/wireguard/publickey
+```
+
+Linux
+
+```sh
+sudo wg genkey | tee /etc/wireguard/privatekey | wg pubkey | tee /etc/wireguard/publickey
 ```
 
 ⚠️  Update Wireguard config with new keys

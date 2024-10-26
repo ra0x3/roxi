@@ -16,7 +16,7 @@ pub enum WireGuardKeyKind {
     Public,
 }
 
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Deserialize)]
 pub struct WireGuardKey {
     key: String,
     kind: WireGuardKeyKind,
@@ -56,6 +56,15 @@ impl TryFrom<&PathBuf> for WireGuardKey {
     }
 }
 
+impl Serialize for WireGuardKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.key)
+    }
+}
+
 pub struct WireGuardKeyPair {
     #[allow(unused)]
     pub pubkey: WireGuardKey,
@@ -65,7 +74,6 @@ pub struct WireGuardKeyPair {
 #[derive(Debug)]
 pub struct WireGuardInterface {
     pub private_key: WireGuardKey,
-    pub public_key: WireGuardKey,
     pub address: String,
     pub port: u16,
     pub dns: Option<IpAddr>,
@@ -142,10 +150,6 @@ impl<'de> Deserialize<'de> for WireGuardInterface {
 
                 Ok(WireGuardInterface {
                     private_key,
-                    public_key: WireGuardKey {
-                        key: "mock".to_string(),
-                        kind: WireGuardKeyKind::default(),
-                    },
                     address,
                     port,
                     dns,
@@ -178,7 +182,7 @@ impl Serialize for WireGuardPeer {
 
         let mut state = serializer.serialize_struct("WireGuardPeer", 4)?;
         state.serialize_field("PublicKey", &self.public_key)?;
-        state.serialize_field("AllowedIps", &self.allowed_ips)?;
+        state.serialize_field("AllowedIPs", &self.allowed_ips)?;
         if let Some(endpoint) = &self.endpoint {
             state.serialize_field("Endpoint", endpoint)?;
         }
@@ -288,11 +292,11 @@ impl From<&WireGuardPeer> for config::WireGuardPeer {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct WireGuardConfig {
     #[serde(rename = "Interface")]
     pub interface: WireGuardInterface,
-    #[serde(rename = "Peer")]
+    #[serde(rename = "Peer", default)]
     pub peers: Option<Vec<WireGuardPeer>>,
 }
 
@@ -361,7 +365,6 @@ impl TryFrom<config::WireGuard> for WireGuardConfig {
             }
             ToolType::Boringtun => {
                 if let Some(Boringtun {
-                    public_key,
                     private_key,
                     dns,
                     address,
@@ -372,7 +375,6 @@ impl TryFrom<config::WireGuard> for WireGuardConfig {
                 {
                     Ok(Self {
                         interface: WireGuardInterface {
-                            public_key: WireGuardKey::from_public(public_key),
                             private_key: WireGuardKey::from_private(private_key),
                             dns,
                             address,
@@ -390,6 +392,58 @@ impl TryFrom<config::WireGuard> for WireGuardConfig {
                 }
             }
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for WireGuardConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct WireGuardConfigVisitor;
+
+        impl<'de> de::Visitor<'de> for WireGuardConfigVisitor {
+            type Value = WireGuardConfig;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct WireGuardConfig")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<WireGuardConfig, V::Error>
+            where
+                V: de::MapAccess<'de>,
+            {
+                let mut interface = None;
+                let mut peers = None;
+
+                while let Some(key) = map.next_key::<String>()? {
+                    println!("DEBUG: Found key in config: {}", key);  // Debug print
+                    match key.as_str() {
+                        "Interface" => {
+                            interface = Some(map.next_value()?);
+                        }
+                        "Peer" => {
+                            peers = Some(map.next_value()?);
+                        }
+                        _ => {
+                            println!("DEBUG: Ignoring unknown key: {}", key);  // Debug print
+                            let _ = map.next_value::<de::IgnoredAny>()?;
+                        }
+                    }
+                }
+
+                Ok(WireGuardConfig {
+                    interface: interface.ok_or_else(|| de::Error::missing_field("Interface"))?,
+                    peers,
+                })
+            }
+        }
+
+        deserializer.deserialize_struct(
+            "WireGuardConfig",
+            &["Interface", "Peer"],
+            WireGuardConfigVisitor
+        )
     }
 }
 
@@ -456,12 +510,61 @@ impl WireGuardConfigBuilder {
         WireGuardConfig {
             interface: WireGuardInterface {
                 private_key: self.private_key.expect("Private key expected"),
-                public_key: self.public_key.expect("Public key expected"),
                 address: self.address.expect("Address expected"),
                 port: self.port.expect("Port expected"),
                 dns: self.dns,
             },
             peers: self.peers,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_wireguard_config_can_be_updated_and_saved() {
+        let content = r#"
+[Interface]
+# The private key of the WireGuard server (keep this secret)
+PrivateKey = "ServerPrivateKey"
+
+# The IP address and subnet of the WireGuard interface on the server
+Address = "10.0.0.1/24"
+
+# The UDP port on which WireGuard will listen
+ListenPort = 51820
+
+# The location where persistent data (peers) will be stored
+# Optional, but useful for storing peer data across reboots
+SaveConfig = true
+
+# Optional: Firewall settings to allow traffic
+# PostUp and PostDown run commands after the interface is brought up or down
+# PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+# PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+"#;
+
+        let mut config = WireGuardConfig::try_from(content).unwrap();
+        config.add_peer(WireGuardPeer {
+            public_key: WireGuardKey::from_public("123".to_string()),
+            allowed_ips: "".to_string(),
+            endpoint: None,
+            persistent_keepalive: None,
+        });
+
+        let name = "wg0.test.conf.foo";
+        let _ = config.save(name);
+
+        let path = PathBuf::from(name);
+        let updated_config = WireGuardConfig::try_from(&path).unwrap();
+        assert_eq!(
+            updated_config.peers.as_ref().map(|v| v.len()).unwrap_or(0),
+            1
+        );
+
+        std::fs::remove_file(name).unwrap();
     }
 }

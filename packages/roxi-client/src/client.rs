@@ -1,7 +1,9 @@
 use crate::{config::Config, ClientResult};
 use bytes::BytesMut;
 use roxi_lib::types::{Address, ClientId, InterfaceKind};
-use roxi_proto::{Message, MessageKind, MessageStatus, WireGuardConfig, WireGuardPeer};
+use roxi_proto::{
+    command, Message, MessageKind, MessageStatus, WireGuardConfig, WireGuardPeer,
+};
 use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -178,13 +180,7 @@ impl Client {
 
     #[allow(unused)]
     async fn request_tunnel_info(&mut self) -> ClientResult<()> {
-        let pubkey = self
-            .wireguard_config
-            .lock()
-            .await
-            .interface
-            .public_key
-            .clone();
+        let pubkey = command::cat_wireguard_pubkey()?;
         let endpoint = None;
         let allowed_ips = "".to_string();
         let persistent_keepalive = 1;

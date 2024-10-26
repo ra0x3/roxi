@@ -9,6 +9,12 @@ use std::{
     process::{Command, Stdio},
 };
 
+#[cfg(target_os = "linux")]
+const PUBLICKEY_PATH: &str = "/etc/wireguard/publickey";
+
+#[cfg(target_os = "macos")]
+const PUBLICKEY_PATH: &str = "/opt/homebrew/etc/wireguard/publickey";
+
 pub fn reload_wireguard(interface: &str) -> io::Result<()> {
     tracing::info!("Reloading WireGuard on interface: {interface}");
     let output = Command::new("wg-quick")
@@ -83,6 +89,20 @@ pub fn derive_wireguard_pubkey(privkey: &mut WireGuardKey) -> ProtoResult<WireGu
     let pubkey = String::from_utf8(output.stdout)?.trim().to_string();
 
     Ok(WireGuardKey::from_public(pubkey))
+}
+
+pub fn cat_wireguard_pubkey() -> ProtoResult<WireGuardKey> {
+    let output = Command::new("cat").arg(PUBLICKEY_PATH).output()?;
+
+    if output.status.success() {
+        let k = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        return Ok(WireGuardKey::from_public(k));
+    }
+
+    Err(ProtoError::Io(io::Error::new(
+        io::ErrorKind::Other,
+        "Failed to read publickey",
+    )))
 }
 
 pub fn cat_wireguard_key<P: AsRef<Path>>(p: P) -> ProtoResult<WireGuardKey> {

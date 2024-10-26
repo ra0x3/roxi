@@ -89,9 +89,13 @@ done
 if [ "$(uname)" = "Darwin" ]; then
     WG_CONF_PATH="/opt/homebrew/etc/wireguard/${INTERFACE}.conf"
     WG_QUICK="/opt/homebrew/bin/bash /opt/homebrew/bin/wg-quick"
+    PRIVATE_KEY_PATH="/opt/homebrew/etc/wireguard/privatekey"
+    PUBLIC_KEY_PATH="/opt/homebrew/etc/wireguard/publickey"
 else
     WG_CONF_PATH="/etc/wireguard/${INTERFACE}.conf"
     WG_QUICK="wg-quick"
+    PRIVATE_KEY_PATH="/etc/wireguard/privatekey"
+    PUBLIC_KEY_PATH="/etc/wireguard/publickey"
 fi
 
 if ! command -v wg >/dev/null 2>&1; then
@@ -124,26 +128,27 @@ if [ -f "$WG_CONF_PATH" ] && [ "$OVERWRITE" = false ]; then
 fi
 
 if [ "$OVERWRITE" = true ] || [ ! -f "$WG_CONF_PATH" ]; then
-    PRIVATE_KEY=$(wg genkey)
-    PUBLIC_KEY=$(echo "$PRIVATE_KEY" | wg pubkey)
+    sudo mkdir -p "$(dirname "$WG_CONF_PATH")"
+    sudo wg genkey | sudo tee "$PRIVATE_KEY_PATH" | wg pubkey | sudo tee "$PUBLIC_KEY_PATH" > /dev/null
+    PRIVATE_KEY=$(sudo cat "$PRIVATE_KEY_PATH")
+    PUBLIC_KEY=$(sudo cat "$PUBLIC_KEY_PATH")
     CLIENT_IP=$(generate_client_ip "$PUBLIC_KEY")
 
-    sudo mkdir -p "$(dirname "$WG_CONF_PATH")"
     sudo tee "$WG_CONF_PATH" > /dev/null <<EOF
 [Interface]
 # The private key of the WireGuard server (keep this secret)
-PrivateKey = "$PRIVATE_KEY"
+PrivateKey = $PRIVATE_KEY
 
 # The IP address and subnet of the WireGuard interface on the server
-Address = "$CLIENT_IP/24"
+Address = $CLIENT_IP/24
 
 # The UDP port on which WireGuard will listen
-ListenPort = 51820
+ListenPort = $PORT
 
 # Optional: Firewall settings to allow traffic
 # PostUp and PostDown run commands after the interface is brought up or down
-# PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-# PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+# PostUp = iptables -A FORWARD -i $INTERFACE -j ACCEPT; iptables -A FORWARD -o $INTERFACE -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+# PostDown = iptables -D FORWARD -i $INTERFACE -j ACCEPT; iptables -D FORWARD -o $INTERFACE -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 
 EOF
 

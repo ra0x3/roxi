@@ -2,7 +2,9 @@ use crate::{error::ServerError, ServerResult};
 use async_std::sync::Arc;
 use roxi_client::Config;
 use roxi_lib::types::{ClientId, InterfaceKind};
-use roxi_proto::{Message, MessageKind, MessageStatus, WireGuardConfig, WireGuardPeer};
+use roxi_proto::{
+    command, Message, MessageKind, MessageStatus, WireGuardConfig, WireGuardPeer,
+};
 use std::collections::HashMap;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -91,13 +93,7 @@ impl Gateway {
 
                 // TODO: Save new config
 
-                let pubkey = self
-                    .wireguard_config
-                    .lock()
-                    .await
-                    .interface
-                    .public_key
-                    .clone();
+                let pubkey = command::cat_wireguard_pubkey()?;
 
                 let allowed_ips = "".to_string();
                 let endpoint = None;
