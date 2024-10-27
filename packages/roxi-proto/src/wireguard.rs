@@ -565,6 +565,28 @@ SaveConfig = true
             1
         );
 
+        config.add_peer(WireGuardPeer {
+            public_key: WireGuardKey::from_public("456".to_string()),
+            allowed_ips: "".to_string(),
+            endpoint: None,
+            persistent_keepalive: None,
+        });
+
+        config.add_peer(WireGuardPeer {
+            public_key: WireGuardKey::from_public("789".to_string()),
+            allowed_ips: "".to_string(),
+            endpoint: None,
+            persistent_keepalive: None,
+        });
+
+        let _ = config.save(name);
+
+        let updated_config = WireGuardConfig::try_from(&path).unwrap();
+        assert_eq!(
+            updated_config.peers.as_ref().map(|v| v.len()).unwrap_or(0),
+            3
+        );
+
         std::fs::remove_file(name).unwrap();
     }
 }
