@@ -96,15 +96,25 @@ check_existing_config() {
 }
 
 generate_keys() {
+    if [ "$(uname)" = "Darwin" ]; then
+        PRIVATE_KEY_PATH="/opt/homebrew/etc/wireguard/privatekey"
+        PUBLIC_KEY_PATH="/opt/homebrew/etc/wireguard/publickey"
+    else
+        PRIVATE_KEY_PATH="/etc/wireguard/privatekey"
+        PUBLIC_KEY_PATH="/etc/wireguard/publickey"
+    fi
+
+    sudo mkdir -p "$(dirname "$PRIVATE_KEY_PATH")"
+
     if [ "$OVERWRITE" = true ] || [ ! -f "$PRIVATE_KEY_PATH" ] || [ ! -f "$PUBLIC_KEY_PATH" ]; then
         sudo wg genkey | sudo tee "$PRIVATE_KEY_PATH" | wg pubkey | sudo tee "$PUBLIC_KEY_PATH" > /dev/null
-        PRIVATE_KEY=$(sudo cat "$PRIVATE_KEY_PATH")
-        PUBLIC_KEY=$(sudo cat "$PUBLIC_KEY_PATH")
-        echo -e "${GREEN}Keys generated and saved.${NC}"
+        echo -e "${GREEN}Keys generated and saved:${NC}"
+        echo -e "${GREEN}Private Key: $PRIVATE_KEY_PATH${NC}"
+        echo -e "${GREEN}Public Key: $PUBLIC_KEY_PATH${NC}"
     else
-        PRIVATE_KEY=$(sudo cat "$PRIVATE_KEY_PATH")
-        PUBLIC_KEY=$(sudo cat "$PUBLIC_KEY_PATH")
-        echo -e "${GREEN}Using existing keys.${NC}"
+        echo -e "${GREEN}Using existing keys:${NC}"
+        echo -e "${GREEN}Private Key: $PRIVATE_KEY_PATH${NC}"
+        echo -e "${GREEN}Public Key: $PUBLIC_KEY_PATH${NC}"
     fi
 }
 
