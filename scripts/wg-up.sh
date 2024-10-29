@@ -6,8 +6,6 @@ YELLOW="\033[0;33m"
 NC="\033[0m"
 
 ROXI_DIR="$HOME/.config/roxi"
-PRIVATE_KEY_PATH="$ROXI_DIR/privatekey"
-PUBLIC_KEY_PATH="$ROXI_DIR/publickey"
 
 usage() {
     echo "${YELLOW}Usage: $0 [interface]${NC}"
@@ -27,7 +25,14 @@ set_interface() {
 }
 
 configure_paths() {
-    CONFIG_FILE="$ROXI_DIR/${INTERFACE}.conf"
+    if [ "$(uname)" = "Darwin" ]; then
+        CONFIG_DIR="/opt/homebrew/etc/wireguard"
+    else
+        CONFIG_DIR="/etc/wireguard"
+    fi
+    CONFIG_FILE="$ROXI_DIR/$INTERFACE.conf"
+    PRIVATE_KEY_PATH="$CONFIG_DIR/privatekey"
+    PUBLIC_KEY_PATH="$CONFIG_DIR/publickey"
 }
 
 check_config_file() {
@@ -39,7 +44,7 @@ check_config_file() {
 
 check_keys() {
     if [ ! -f "$PRIVATE_KEY_PATH" ] || [ ! -f "$PUBLIC_KEY_PATH" ]; then
-        echo "${RED}Error: Private or public key file not found in $ROXI_DIR.${NC}"
+        echo "${RED}Error: Private or public key file not found in $CONFIG_DIR.${NC}"
         exit 1
     fi
 }

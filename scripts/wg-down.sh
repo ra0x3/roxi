@@ -5,6 +5,8 @@ RED="\033[0;31m"
 YELLOW="\033[0;33m"
 NC="\033[0m"
 
+ROXI_DIR="$HOME/.config/roxi"
+
 usage() {
     echo "${YELLOW}Usage: $0 [interface]${NC}"
     echo "  interface (optional): Name of the WireGuard interface (default: wg0)."
@@ -30,12 +32,14 @@ configure_paths() {
         CONFIG_DIR="/etc/wireguard"
         WG_QUICK="wg-quick"
     fi
-    CONFIG_FILE="$CONFIG_DIR/$INTERFACE.conf"
+    CONFIG_FILE="$ROXI_DIR/$INTERFACE.conf"
+    PRIVATE_KEY_PATH="$CONFIG_DIR/privatekey"
+    PUBLIC_KEY_PATH="$CONFIG_DIR/publickey"
 }
 
-check_config_file() {
-    if [ ! -f "$CONFIG_FILE" ]; then
-        echo "${RED}Error: Config file '$CONFIG_FILE' does not exist.${NC}"
+check_required_files() {
+    if [ ! -f "$CONFIG_FILE" ] || [ ! -f "$PRIVATE_KEY_PATH" ] || [ ! -f "$PUBLIC_KEY_PATH" ]; then
+        echo "${RED}Error: Required files not found. Ensure $CONFIG_FILE in $ROXI_DIR, and $PRIVATE_KEY_PATH and $PUBLIC_KEY_PATH in $CONFIG_DIR.${NC}"
         exit 1
     fi
 }
@@ -55,7 +59,7 @@ main() {
     validate_args "$@"
     set_interface "$1"
     configure_paths
-    check_config_file
+    check_required_files
     bring_down_interface
 }
 

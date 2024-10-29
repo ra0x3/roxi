@@ -51,15 +51,18 @@ uninstall_wireguard() {
 }
 
 configure_paths() {
-    mkdir -p "$ROXI_DIR"
     WG_CONFIG_FILE="$ROXI_DIR/${INTERFACE}.conf"
-    PRIVATE_KEY_PATH="$ROXI_DIR/privatekey"
-    PUBLIC_KEY_PATH="$ROXI_DIR/publickey"
+
     if [ "$(uname)" = "Darwin" ]; then
+        CONFIG_DIR="/opt/homebrew/etc/wireguard"
         WG_QUICK="/opt/homebrew/bin/bash /opt/homebrew/bin/wg-quick"
     else
+        CONFIG_DIR="/etc/wireguard"
         WG_QUICK="wg-quick"
     fi
+
+    PRIVATE_KEY_PATH="$CONFIG_DIR/privatekey"
+    PUBLIC_KEY_PATH="$CONFIG_DIR/publickey"
 }
 
 install_wireguard() {
@@ -96,14 +99,6 @@ check_existing_config() {
 }
 
 generate_keys() {
-    if [ "$(uname)" = "Darwin" ]; then
-        PRIVATE_KEY_PATH="/opt/homebrew/etc/wireguard/privatekey"
-        PUBLIC_KEY_PATH="/opt/homebrew/etc/wireguard/publickey"
-    else
-        PRIVATE_KEY_PATH="/etc/wireguard/privatekey"
-        PUBLIC_KEY_PATH="/etc/wireguard/publickey"
-    fi
-
     sudo mkdir -p "$(dirname "$PRIVATE_KEY_PATH")"
 
     if [ "$OVERWRITE" = true ] || [ ! -f "$PRIVATE_KEY_PATH" ] || [ ! -f "$PUBLIC_KEY_PATH" ]; then
@@ -153,6 +148,15 @@ start_wireguard() {
     fi
 }
 
+check_dir() {
+    if [ -d "$ROXI_DIR" ]; then
+        echo -e "${GREEN}Directory $ROXI_DIR already exists.${NC}"
+    else
+        mkdir -p "$ROXI_DIR"
+        echo -e "${YELLOW}Directory $ROXI_DIR created.${NC}"
+    fi
+}
+
 configure_paths
 
 if [ "$1" = "--uninstall" ]; then
@@ -173,6 +177,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+check_dir
 install_wireguard
 check_existing_config
 generate_keys
