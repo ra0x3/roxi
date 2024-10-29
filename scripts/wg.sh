@@ -102,7 +102,8 @@ generate_keys() {
     sudo mkdir -p "$(dirname "$PRIVATE_KEY_PATH")"
 
     if [ "$OVERWRITE" = true ] || [ ! -f "$PRIVATE_KEY_PATH" ] || [ ! -f "$PUBLIC_KEY_PATH" ]; then
-        sudo wg genkey | sudo tee "$PRIVATE_KEY_PATH" | wg pubkey | sudo tee "$PUBLIC_KEY_PATH" > /dev/null
+        sudo wg genkey | tee "$PRIVATE_KEY_PATH" | wg pubkey | tee "$PUBLIC_KEY_PATH" > /dev/null
+        PUBLIC_KEY=$(sudo cat "$PUBLIC_KEY_PATH")
         echo -e "${GREEN}Keys generated and saved:${NC}"
         echo -e "${GREEN}Private Key: $PRIVATE_KEY_PATH${NC}"
         echo -e "${GREEN}Public Key: $PUBLIC_KEY_PATH${NC}"
