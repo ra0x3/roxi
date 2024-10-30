@@ -144,7 +144,7 @@ update_firewall() {
 start_wireguard() {
     if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
         echo  "${GREEN}Bringing up WireGuard on interface ${INTERFACE}${NC}"
-        sudo sh scripts/wg-link.sh "$WG_CONFIG_FILE" "$INTERFACE"
+        sudo sh scripts/wg-link.sh --interface "$INTERFACE"
         sudo $WG_QUICK up $INTERFACE && sudo wg show $INTERFACE
     fi
 }

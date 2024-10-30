@@ -6,9 +6,9 @@ YELLOW="\033[0;33m"
 NC="\033[0m"
 
 CONFIG_DIR="/etc/wireguard"
-DESTINATION="/etc/wireguard"
+ROXI_HOME="$HOME/.config/roxi"
 INTERFACE="wg0"
-[ "$(uname)" = "Darwin" ] && CONFIG_DIR="/opt/homebrew/etc/wireguard" && DESTINATION="/opt/homebrew/etc/wireguard"
+[ "$(uname)" = "Darwin" ] && CONFIG_DIR="/opt/homebrew/etc/wireguard"
 
 usage() {
     echo "${YELLOW}Usage: $0 [--interface INTERFACE]${NC}"
@@ -43,7 +43,8 @@ parse_args() {
 }
 
 set_paths() {
-    SOURCE_FILE="$CONFIG_DIR/$INTERFACE.conf"
+    SOURCE_FILE="$ROXI_HOME/$INTERFACE.conf"
+    DESTINATION_FILE="$CONFIG_DIR/$INTERFACE.conf"
 }
 
 check_dir() {
@@ -52,6 +53,11 @@ check_dir() {
         exit 1
     else
         echo "${GREEN}Configuration directory '$CONFIG_DIR' exists.${NC}"
+    fi
+
+    if [ ! -d "$ROXI_HOME" ]; then
+        mkdir -p "$ROXI_HOME"
+        echo "${GREEN}Created directory '$ROXI_HOME'.${NC}"
     fi
 }
 
@@ -65,13 +71,15 @@ check_source_file() {
 }
 
 create_symlink() {
-    if [ -e "$DESTINATION" ]; then
-        echo "${YELLOW}Warning: Destination '$DESTINATION' already exists. It will be overwritten.${NC}"
+    if [ -e "$DESTINATION_FILE" ]; then
+        echo "${YELLOW}Warning: Destination '$DESTINATION_FILE' already exists. It will be overwritten.${NC}"
     fi
 
-    ln -sf "$SOURCE_FILE" "$DESTINATION"
+    ln -sf "$SOURCE_FILE" "$DESTINATION_FILE"
     if [ $? -eq 0 ]; then
-        echo "${GREEN}Symlink created from '$SOURCE_FILE' to '$DESTINATION'.${NC}"
+        echo "${GREEN}Symlink created from '$SOURCE_FILE' to '$DESTINATION_FILE'.${NC}"
+        sudo chown "$(whoami):$(whoami)" "$DESTINATION_FILE"
+        chmod 600 "$DESTINATION_FILE"
     else
         echo "${RED}Error: Failed to create symlink.${NC}"
         exit 1
