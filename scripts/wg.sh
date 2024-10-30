@@ -13,10 +13,10 @@ RED='\033[1;31m'
 NC='\033[0m'
 
 usage() {
-    echo -e "${YELLOW}Usage: $0 [--overwrite | --uninstall | --interface <name>]${NC}"
-    echo -e "${YELLOW}  --overwrite  Overwrite existing configuration${NC}"
-    echo -e "${YELLOW}  --uninstall  Remove WireGuard and all configuration files${NC}"
-    echo -e "${YELLOW}  --interface <name>  Specify the interface name (default: wg0)${NC}"
+    echo  "${YELLOW}Usage: $0 [--overwrite | --uninstall | --interface <name>]${NC}"
+    echo  "${YELLOW}  --overwrite  Overwrite existing configuration${NC}"
+    echo  "${YELLOW}  --uninstall  Remove WireGuard and all configuration files${NC}"
+    echo  "${YELLOW}  --interface <name>  Specify the interface name (default: wg0)${NC}"
     exit 1
 }
 
@@ -33,20 +33,20 @@ install_prompt() {
     read -p "Do you want to install/add/enable: $package_name? [Y/n]: " response
     case "$response" in
         [yY][eE][sS]|[yY]|"") return 0 ;;
-        *) echo -e "${YELLOW}$package_name installation skipped.${NC}" ;;
+        *) echo  "${YELLOW}$package_name installation skipped.${NC}" ;;
     esac
     return 1
 }
 
 uninstall_wireguard() {
-    echo -e "${GREEN}Uninstalling WireGuard and removing configuration files.${NC}"
+    echo  "${GREEN}Uninstalling WireGuard and removing configuration files.${NC}"
     if [ "$(uname)" = "Darwin" ]; then
         brew uninstall wireguard-tools
     else
         sudo apt-get remove -y wireguard-tools
     fi
     rm -rf "$ROXI_DIR"
-    echo -e "${GREEN}WireGuard uninstalled and configuration files removed.${NC}"
+    echo  "${GREEN}WireGuard uninstalled and configuration files removed.${NC}"
     exit 0
 }
 
@@ -68,29 +68,29 @@ configure_paths() {
 install_wireguard() {
     if ! command -v wg >/dev/null 2>&1; then
         if install_prompt "WireGuard"; then
-            echo -e "${GREEN}Installing WireGuard${NC}"
+            echo  "${GREEN}Installing WireGuard${NC}"
             if [ "$(uname)" = "Darwin" ]; then
                 brew install wireguard-tools && brew install bash
             else
                 sudo apt-get install -y wireguard-tools
             fi
         else
-            echo -e "${RED}WireGuard is required to proceed. Exiting.${NC}"
+            echo  "${RED}WireGuard is required to proceed. Exiting.${NC}"
             exit 1
         fi
     else
-        echo -e "${GREEN}WireGuard is already installed${NC}"
+        echo  "${GREEN}WireGuard is already installed${NC}"
     fi
 }
 
 check_existing_config() {
     if [ -f "$WG_CONFIG_FILE" ] && [ "$OVERWRITE" = false ]; then
-        echo -e "${GREEN}Existing configuration found at $WG_CONFIG_FILE${NC}"
+        echo  "${GREEN}Existing configuration found at $WG_CONFIG_FILE${NC}"
         if sudo wg show "$INTERFACE" >/dev/null 2>&1; then
-            echo -e "${GREEN}Interface $INTERFACE is already up.${NC}"
+            echo  "${GREEN}Interface $INTERFACE is already up.${NC}"
         else
             if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
-                echo -e "${GREEN}Bringing up WireGuard on interface ${INTERFACE}${NC}"
+                echo  "${GREEN}Bringing up WireGuard on interface ${INTERFACE}${NC}"
                 sudo $WG_QUICK up $INTERFACE && sudo wg show $INTERFACE
             fi
         fi
@@ -104,13 +104,13 @@ generate_keys() {
     if [ "$OVERWRITE" = true ] || [ ! -f "$PRIVATE_KEY_PATH" ] || [ ! -f "$PUBLIC_KEY_PATH" ]; then
         sudo wg genkey | tee "$PRIVATE_KEY_PATH" | wg pubkey | tee "$PUBLIC_KEY_PATH" > /dev/null
         PUBLIC_KEY=$(sudo cat "$PUBLIC_KEY_PATH")
-        echo -e "${GREEN}Keys generated and saved:${NC}"
-        echo -e "${GREEN}Private Key: $PRIVATE_KEY_PATH${NC}"
-        echo -e "${GREEN}Public Key: $PUBLIC_KEY_PATH${NC}"
+        echo  "${GREEN}Keys generated and saved:${NC}"
+        echo  "${GREEN}Private Key: $PRIVATE_KEY_PATH${NC}"
+        echo  "${GREEN}Public Key: $PUBLIC_KEY_PATH${NC}"
     else
-        echo -e "${GREEN}Using existing keys:${NC}"
-        echo -e "${GREEN}Private Key: $PRIVATE_KEY_PATH${NC}"
-        echo -e "${GREEN}Public Key: $PUBLIC_KEY_PATH${NC}"
+        echo  "${GREEN}Using existing keys:${NC}"
+        echo  "${GREEN}Private Key: $PRIVATE_KEY_PATH${NC}"
+        echo  "${GREEN}Public Key: $PUBLIC_KEY_PATH${NC}"
     fi
 }
 
@@ -124,8 +124,8 @@ ListenPort = $PORT
 # PostUp = iptables -A FORWARD -i $INTERFACE -j ACCEPT; iptables -A FORWARD -o $INTERFACE -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 # PostDown = iptables -D FORWARD -i $INTERFACE -j ACCEPT; iptables -D FORWARD -o $INTERFACE -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 EOF
-    echo -e "${GREEN}WireGuard configuration created at $WG_CONFIG_FILE${NC}"
-    echo -e "${GREEN}Your WireGuard public key is: $PUBLIC_KEY${NC}"
+    echo  "${GREEN}WireGuard configuration created at $WG_CONFIG_FILE${NC}"
+    echo  "${GREEN}Your WireGuard public key is: $PUBLIC_KEY${NC}"
 }
 
 update_firewall() {
@@ -134,31 +134,29 @@ update_firewall() {
             sudo iptables -A FORWARD -i $INTERFACE -j ACCEPT
             sudo iptables -A FORWARD -o $INTERFACE -j ACCEPT
             sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-            echo -e "${GREEN}iptables rules added for forwarding traffic.${NC}"
+            echo  "${GREEN}iptables rules added for forwarding traffic.${NC}"
         fi
     else
-        echo -e "${YELLOW}Detected macOS, skipping iptables configuration.${NC}"
+        echo  "${YELLOW}Detected macOS, skipping iptables configuration.${NC}"
     fi
 }
 
 start_wireguard() {
     if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
-        echo -e "${GREEN}Bringing up WireGuard on interface ${INTERFACE}${NC}"
-        sudo sh scripts/wg-symlink.sh "$WG_CONFIG_FILE" "$INTERFACE"
+        echo  "${GREEN}Bringing up WireGuard on interface ${INTERFACE}${NC}"
+        sudo sh scripts/wg-link.sh "$WG_CONFIG_FILE" "$INTERFACE"
         sudo $WG_QUICK up $INTERFACE && sudo wg show $INTERFACE
     fi
 }
 
 check_dir() {
     if [ -d "$ROXI_DIR" ]; then
-        echo -e "${GREEN}Directory $ROXI_DIR already exists.${NC}"
+        echo  "${GREEN}Directory $ROXI_DIR already exists.${NC}"
     else
         mkdir -p "$ROXI_DIR"
-        echo -e "${YELLOW}Directory $ROXI_DIR created.${NC}"
+        echo  "${YELLOW}Directory $ROXI_DIR created.${NC}"
     fi
 }
-
-configure_paths
 
 if [ "$1" = "--uninstall" ]; then
     uninstall_wireguard
@@ -170,7 +168,7 @@ while [ $# -gt 0 ]; do
         --uninstall) uninstall_wireguard ;;
         --interface)
             if [ -z "$2" ]; then
-                echo -e "${RED}Error: --interface requires an argument.${NC}"
+                echo  "${RED}Error: --interface requires an argument.${NC}"
                 usage
             fi
             INTERFACE="$2"; shift 2 ;;
@@ -178,6 +176,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+configure_paths
 check_dir
 install_wireguard
 check_existing_config

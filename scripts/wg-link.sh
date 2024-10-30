@@ -5,26 +5,44 @@ RED="\033[0;31m"
 YELLOW="\033[0;33m"
 NC="\033[0m"
 
-CONFIG_DIR="/etc/wireguard"  # Default to Linux path
-[ "$(uname)" = "Darwin" ] && CONFIG_DIR="/opt/homebrew/etc/wireguard"
+CONFIG_DIR="/etc/wireguard"
+DESTINATION="/etc/wireguard"
+INTERFACE="wg0"
+[ "$(uname)" = "Darwin" ] && CONFIG_DIR="/opt/homebrew/etc/wireguard" && DESTINATION="/opt/homebrew/etc/wireguard"
 
 usage() {
-    echo "${YELLOW}Usage: $0 <destination> [interface]${NC}"
-    echo "  destination: Path where the symlink should be created."
-    echo "  interface (optional): Name of the WireGuard interface (default: wg0)."
+    echo "${YELLOW}Usage: $0 [--interface INTERFACE]${NC}"
+    echo "  --interface INTERFACE (optional): Name of the WireGuard interface (default: wg0)."
 }
 
-validate_args() {
-    if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-        echo "${RED}Error: Invalid number of arguments.${NC}"
-        usage
-        exit 1
-    fi
+parse_args() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --interface)
+                if [ -n "$2" ]; then
+                    INTERFACE="$2"
+                    shift
+                else
+                    echo "${RED}Error: --interface flag requires an argument.${NC}"
+                    usage
+                    exit 1
+                fi
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                echo "${RED}Error: Invalid argument '$1'.${NC}"
+                usage
+                exit 1
+                ;;
+        esac
+        shift
+    done
 }
 
 set_paths() {
-    DESTINATION=$1
-    INTERFACE=${2:-wg0}
     SOURCE_FILE="$CONFIG_DIR/$INTERFACE.conf"
 }
 
@@ -61,8 +79,8 @@ create_symlink() {
 }
 
 main() {
-    validate_args "$@"
-    set_paths "$@"
+    parse_args "$@"
+    set_paths
     check_dir
     check_source_file
     create_symlink
