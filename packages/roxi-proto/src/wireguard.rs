@@ -417,7 +417,6 @@ impl<'de> Deserialize<'de> for WireGuardConfig {
                 let mut peers = None;
 
                 while let Some(key) = map.next_key::<String>()? {
-                    println!("DEBUG: Found key in config: {}", key); // Debug print
                     match key.as_str() {
                         "Interface" => {
                             interface = Some(map.next_value()?);
@@ -426,7 +425,6 @@ impl<'de> Deserialize<'de> for WireGuardConfig {
                             peers = Some(map.next_value()?);
                         }
                         _ => {
-                            println!("DEBUG: Ignoring unknown key: {}", key); // Debug print
                             let _ = map.next_value::<de::IgnoredAny>()?;
                         }
                     }
