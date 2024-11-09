@@ -1,5 +1,6 @@
 pub(crate) use crate::command::{
-    auth, connect, gateway, hello, ping, quick, seed, serve, stun,
+    auth, connect, gateway, hello, ping, punch, quick, regateway, seed, serve, stinfo,
+    stun, tinfo,
 };
 use clap::{Parser, Subcommand};
 
@@ -31,6 +32,14 @@ pub enum RoxiCli {
     Quick(quick::Args),
     #[clap(name = "seed", about = "Seed client")]
     Seed(seed::Args),
+    #[clap(name = "punch", about = "Nat punch")]
+    Punch(punch::Args),
+    #[clap(name = "stinfo", about = "Request stun info")]
+    StInfo(stinfo::Args),
+    #[clap(name = "tinfo", about = "Request tunnel info")]
+    TInfo(tinfo::Args),
+    #[clap(name = "regateway", about = "Request gateway")]
+    ReGateway(regateway::Args),
 }
 
 pub async fn run_cli() -> Result<(), anyhow::Error> {
@@ -46,5 +55,9 @@ pub async fn run_cli() -> Result<(), anyhow::Error> {
         RoxiCli::Gateway(command) => gateway::exec(command).await,
         RoxiCli::Quick(command) => quick::exec(command).await,
         RoxiCli::Seed(command) => seed::exec(command).await,
+        RoxiCli::Punch(command) => punch::exec(command).await,
+        RoxiCli::StInfo(command) => stinfo::exec(command).await,
+        RoxiCli::TInfo(command) => tinfo::exec(command).await,
+        RoxiCli::ReGateway(command) => regateway::exec(command).await,
     }
 }

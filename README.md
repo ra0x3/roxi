@@ -41,6 +41,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://install.roxi.app | sh
 | `auth`    | Authenticate against Roxi server    | ✔️           |
 | `stun`    | Send public IP to STUN server       | ✔️           |
 | `gateway` | Start client gateway server         |             |
+| `seed`    | Register as seed client             | ✔️           |
+| `tinfo`   | Request tunnel info                 |             |
+| `stinfo`  | Request stun info                   |             |
+|`regateway`| Request a gateway                   |             |
 
 ## Development
 

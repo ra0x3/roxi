@@ -36,6 +36,7 @@ impl Client {
         })
     }
 
+    // TODO: Remove this?
     pub async fn connect(&mut self) -> ClientResult<()> {
         self.authenticate().await?;
         self.stun().await?;
@@ -119,6 +120,7 @@ impl Client {
             ))
             .await?;
 
+        tracing::info!("Successfully requested stun info");
         Ok(())
     }
 
@@ -138,7 +140,7 @@ impl Client {
         Ok(Some(addr))
     }
 
-    async fn nat_punch(&mut self, addr: Address) -> ClientResult<()> {
+    pub async fn nat_punch(&mut self, addr: Address) -> ClientResult<()> {
         tracing::info!("Attempting NAT punch to {addr:?}");
 
         // TODO: What is the timeout on this?
@@ -178,8 +180,7 @@ impl Client {
         Ok(())
     }
 
-    #[allow(unused)]
-    async fn request_tunnel_info(&mut self) -> ClientResult<()> {
+    pub async fn request_tunnel_info(&mut self) -> ClientResult<()> {
         let pubkey = command::cat_wireguard_pubkey()?;
         let endpoint = None;
         let allowed_ips = "".to_string();
