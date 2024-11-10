@@ -2,6 +2,14 @@
 
 <image src="https://i.imgur.com/ADlVxrr.png" height="200px" />
 
+## Usage
+
+### Install WireGuard
+
+```sh
+sudo -E sh scripts/wg.sh
+```
+
 ## Dependencies
 
 - `rustc 1.81.0`

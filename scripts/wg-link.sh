@@ -1,5 +1,6 @@
 #!/bin/sh
 
+USER=$(logname)
 GREEN="\033[0;32m"
 RED="\033[0;31m"
 YELLOW="\033[0;33m"
@@ -78,8 +79,8 @@ create_symlink() {
     ln -sf "$SOURCE_FILE" "$DESTINATION_FILE"
     if [ $? -eq 0 ]; then
         echo "${GREEN}Symlink created from '$SOURCE_FILE' to '$DESTINATION_FILE'.${NC}"
-        sudo chown "$(whoami):$(whoami)" "$DESTINATION_FILE"
-        chmod 600 "$DESTINATION_FILE"
+        sudo chown "$USER:$USER" "$SOURCE_FILE"
+        chmod 600 "$SOURCE_FILE"
     else
         echo "${RED}Error: Failed to create symlink.${NC}"
         exit 1

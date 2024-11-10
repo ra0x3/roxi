@@ -85,16 +85,7 @@ install_wireguard() {
 
 check_existing_config() {
     if [ -f "$WG_CONFIG_FILE" ] && [ "$OVERWRITE" = false ]; then
-        echo  "${GREEN}Existing configuration found at $WG_CONFIG_FILE${NC}"
-        if sudo wg show "$INTERFACE" >/dev/null 2>&1; then
-            echo  "${GREEN}Interface $INTERFACE is already up.${NC}"
-        else
-            if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
-                echo  "${GREEN}Bringing up WireGuard on interface ${INTERFACE}${NC}"
-                sudo $WG_QUICK up $INTERFACE && sudo wg show $INTERFACE
-            fi
-        fi
-        exit 0
+        echo  "${YELLOW}Existing configuration found at $WG_CONFIG_FILE${NC}"
     fi
 }
 
@@ -108,14 +99,16 @@ generate_keys() {
         echo  "${GREEN}Private Key: $PRIVATE_KEY_PATH${NC}"
         echo  "${GREEN}Public Key: $PUBLIC_KEY_PATH${NC}"
     else
-        echo  "${GREEN}Using existing keys:${NC}"
-        echo  "${GREEN}Private Key: $PRIVATE_KEY_PATH${NC}"
-        echo  "${GREEN}Public Key: $PUBLIC_KEY_PATH${NC}"
+        PUBLIC_KEY=$(sudo cat "$PUBLIC_KEY_PATH")
+        echo  "${YELLOW}Using existing keys:${NC}"
+        echo  "${YELLOW}Private Key: $PRIVATE_KEY_PATH${NC}"
+        echo  "${YELLOW}Public Key: $PUBLIC_KEY_PATH${NC}"
     fi
 }
 
 create_config_file() {
     CLIENT_IP=$(generate_client_ip "$PUBLIC_KEY")
+    PRIVATE_KEY=$(sudo cat $PRIVATE_KEY_PATH)
     sudo tee "$WG_CONFIG_FILE" > /dev/null <<EOF
 [Interface]
 PrivateKey = $PRIVATE_KEY
@@ -124,7 +117,7 @@ ListenPort = $PORT
 # PostUp = iptables -A FORWARD -i $INTERFACE -j ACCEPT; iptables -A FORWARD -o $INTERFACE -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 # PostDown = iptables -D FORWARD -i $INTERFACE -j ACCEPT; iptables -D FORWARD -o $INTERFACE -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 EOF
-    echo  "${GREEN}WireGuard configuration created at $WG_CONFIG_FILE${NC}"
+    echo  "${GREEN}WireGuard configuration is at $WG_CONFIG_FILE${NC}"
     echo  "${GREEN}Your WireGuard public key is: $PUBLIC_KEY${NC}"
 }
 
@@ -144,7 +137,7 @@ update_firewall() {
 start_wireguard() {
     if install_prompt "WireGuard (wg-quick up ${INTERFACE})"; then
         echo  "${GREEN}Bringing up WireGuard on interface ${INTERFACE}${NC}"
-        sudo sh scripts/wg-link.sh --interface "$INTERFACE"
+        sh scripts/wg-link.sh --interface "$INTERFACE"
         sudo $WG_QUICK up $INTERFACE && sudo wg show $INTERFACE
     fi
 }
