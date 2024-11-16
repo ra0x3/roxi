@@ -6,6 +6,9 @@
 
 ### Install WireGuard
 
+This will install WireGuard, including keys and configs with sensible default
+settings.
+
 ```sh
 sudo -E sh scripts/wg.sh
 ```
@@ -15,133 +18,109 @@ sudo -E sh scripts/wg.sh
 - `rustc 1.81.0`
 - `wireguard-tools v1.0`
 - `docker 20.10` (optional)
+- `bash 4.1+ (5.2.37)`
+- `brew 4.4.0`
 
 ## How it works
 
+Roxi is a sort've centralized peer-to-peer network where a centralized server is
+used to handle most of the business logic, and individual WireGuard
+nodes/clients do the actual heavy lifting VPN logic.
+
 ### Centralized peer-to-peer setup
 
-<image src="https://www.researchgate.net/publication/356245976/figure/fig3/AS:1093585697021954@1637742556713/The-centralized-peer-to-peer-P2P-system-A-peer-E-sends-a-message-to-the-central-server.ppm" height="300px" />
+<image src="https://berty.tech/faq/2-decentralized-distributed/centralized_decentralized_distributed.svg" height="300px" />
 
 ### Network Address Translator (NAT) Punching
 
-<image src="https://www.researchgate.net/publication/228411948/figure/fig6/AS:301985531219968@1449010369011/New-method-of-UDP-multi-hole-punching.png" height="300px" />
+<image src="https://niekdeschipper.com/networksbehindNAT.svg" height="300px" />
 
 ### WireGuard Tunneling
 
 <image src="https://www.procustodibus.com/images/blog/wireguard-topologies/site-to-site-complex.svg" height="400px" />
 
+### Process
+
+Here's a snapshot of the process of two clients connecting via the Roxi
+protocol. In this example ClientB is merely a seed peer - ClientA is the peer
+using actual VPN functionality.
+
+```text
+ClientA                        Server                        ClientB
+   |                              |                              |
+   |---------- Ping ------------->|                              |
+   |                              |                              |
+   |<--------- Pong --------------|                              |
+   |                              |                              |
+   |---- Authentication --------->|                              |
+   |                              |                              |
+   |<------ Auth Confirm ---------|                              |
+   |                              |                              |
+   |                              |                              |
+   |                              |<---------- Ping -------------|
+   |                              |                              |
+   |                              |----------- Pong ------------>|
+   |                              |                              |
+   |                              |<--- Authentication ----------|
+   |                              |                              |
+   |                              |--- Auth Confirm ------------>|
+   |                              |                              |
+   |                              |                              |
+   |                              |<----------- Seed ------------|
+   |                              |                              |
+   |                              |---- Seed Ack --------------->|
+   |                              |                              |
+   |                              |                              |
+   |--- Stun Info Req ----------->|                              |
+   |                              |                              |
+   |<--- ClientB Info ------------|                              |
+   |                              |                              |
+   |--- NAT Punch Req ------------------------------------------>|
+   |                                                             |
+   |<------- NAT Punch Success ----------------------------------|
+   |                                                             |
+   |--- Peer Tunnel Init Req ----------------------------------->|
+   |                                                             |
+   |<-- Peer WireGuard Info -------------------------------------|
+   |                                                             |
+   |--- Peer Tunnel Req ---------------------------------------->|
+   |                                                             |
+   |<-------- Tunnel Established --------------------------------|
+   |                                                             |
+```
+
 ## Installation
 
 The following script should install all prerequisites and dependencies
+
+> ⚠️ This script doesn't exist yet but servers as a placeholder, please follow the
+> other installation instructions below.
 
 ```sh
 curl --proto '=https' --tlsv1.2 -sSf https://install.roxi.app | sh
 ```
 
-## Commands List
+### Install WireGuard
 
-| Command   | Description                         | Implemented |
-|-----------|-------------------------------------|-------------|
-| `hello`   | Test hello command                  | ✔️           |
-| `serve`   | Start Roxi server                   | ✔️           |
-| `connect` | Connect to Roxi server              |             |
-| `ping`    | Ping Roxi server                    | ✔️           |
-| `auth`    | Authenticate against Roxi server    | ✔️           |
-| `stun`    | Send public IP to STUN server       | ✔️           |
-| `gateway` | Start client gateway server         |             |
-| `seed`    | Register as seed client             | ✔️           |
-| `tinfo`   | Request tunnel info                 |             |
-| `stinfo`  | Request stun info                   |             |
-|`regateway`| Request a gateway                   |             |
-
-## Development
-
-### Commands
-
-Start development server
+This will install WireGuard, including keys and configs with sensible default
+settings.
 
 ```sh
-cargo run --bin roxi -- serve --config server.yaml
+sudo -E sh scripts/wg.sh
 ```
 
-#### Ping
+## Commands
 
-```sh
-cargo run --bin roxi -- ping --config client.yaml
-```
-
-#### Auth
-
-```sh
-cargo run --bin roxi -- auth --config client.yaml
-```
-
-#### Stun
-
-```sh
-cargo run --bin roxi -- stun --config client.yaml
-```
-
-### Testing TUN interface on Mac
-
-#### Install Wireguard
-
-Mac OS
-
-```sh
-HOMEBREW_NO_AUTO_UPDATE=1 brew install wireguard-tools
-```
-
-Linux
-
-```sh
-sudo apt update && sudo apt install -y wireguard
-```
-
-#### Install bash 4+
-
-Mac OS
-
-```sh
-HOMEBREW_NO_AUTO_UPDATE=1 brew install bash
-```
-
-Linux
-
-```sh
-sudo apt-get update && sudo apt-get install -y bash
-```
-
-#### Update WireGuard config
-
-Copy Wireguard server conf over to config
-
-Mac OS
-
-```sh
-cp wg0.conf /opt/homebrew/etc/wireguard/
-```
-
-#### Generate Wireguard keys
-
-Mac OS
-
-```sh
-sudo wg genkey | tee /opt/homebrew/etc/wireguard/privatekey | wg pubkey | tee /opt/homebrew/etc/wireguard/publickey
-```
-
-Linux
-
-```sh
-sudo wg genkey | tee /etc/wireguard/privatekey | wg pubkey | tee /etc/wireguard/publickey
-```
-
-⚠️  Update Wireguard config with new keys
-
-#### Start Wireguard on interface `wg0` using `wg-quick`
-
-You can also use `boringtun` but `wg-quick` is much faster
-
-```sh
-sudo /opt/homebrew/bin/bash /opt/homebrew/bin/wg-quick up wg0
-```
+| **Command**              | **Description**             | **Example**                     | **Implemented** |
+|--------------------------|-----------------------------|---------------------------------|-----------------|
+| Start development server | Run the development server  | `roxi serve -c server.yaml`     | ✔️               |
+| Ping                     | Send a ping request         | `roxi ping -c client.local.yaml`| ✔️               |
+| Authenticate             | Authenticate the client     | `roxi auth -c client.local.yaml`| ✔️               |
+| Seed Stun Info           | Seed STUN information       | `roxi stun -c client.local.yaml`| ✔️               |
+| Seed Connection          | Initialize seed connection  | `roxi seed -c client.local.yaml`| ✔️               |
+| Test Hello Command       | Test hello command          | `roxi hello`                    | ✔️               |
+| Connect                  | Connect to Roxi server      | `roxi connect -c client.local.yaml`|              |
+| Start Gateway Server     | Start client gateway server | `roxi gateway -c client.local.yaml`|              |
+| Tunnel Info              | Request tunnel info         | `roxi tinfo -c client.local.yaml`|              |
+| STUN Info                | Request stun info           | `roxi stinfo -c client.local.yaml`|              |
+| Request Gateway          | Request a gateway           | `roxi regateway -c client.local.yaml`|           |

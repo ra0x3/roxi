@@ -86,58 +86,66 @@ impl Client {
         }
 
         tracing::info!("Sending info to STUN server");
-        println!("{}", self.config.remote_addr(InterfaceKind::Udp));
-        self.udp
+        if (self
+            .udp
             .send_to(&request, self.config.remote_addr(InterfaceKind::Udp))
-            .await?;
-
-        tracing::info!("Successfully sent info to STUN server");
+            .await)
+            .is_ok()
+        {
+            tracing::info!("Successfully sent info to STUN server");
+        }
 
         Ok(())
     }
 
     pub async fn seed(&mut self) -> ClientResult<()> {
-        let _msg = self
+        if let Ok(_msg) = self
             .send(Message::new(
                 MessageKind::SeedRequest,
                 MessageStatus::Pending,
                 self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
-            .await?;
+            .await
+        {
+            tracing::info!("Successfully seeded client connection");
+        }
 
-        tracing::info!("Successfully seeded client connection");
         Ok(())
     }
 
     pub async fn request_stun_info(&mut self) -> ClientResult<()> {
-        let _msg = self
+        if let Ok(_msg) = self
             .send(Message::new(
                 MessageKind::StunInfoRequest,
                 MessageStatus::Pending,
                 self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
-            .await?;
-
-        tracing::info!("Successfully requested stun info");
+            .await
+        {
+            tracing::info!("Successfully requested stun info");
+        }
         Ok(())
     }
 
     pub async fn request_gateway(&mut self) -> ClientResult<Option<Address>> {
-        let msg = self
+        if let Ok(msg) = self
             .send(Message::new(
                 MessageKind::GatewayRequest,
                 MessageStatus::Pending,
                 self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
-            .await?;
+            .await
+        {
+            let data = msg.expect("Empty response").into_inner();
+            let addr = Address::try_from(data)?;
 
-        let data = msg.expect("Empty response").into_inner();
-        let addr = Address::try_from(data)?;
+            return Ok(Some(addr));
+        }
 
-        Ok(Some(addr))
+        Ok(None)
     }
 
     pub async fn nat_punch(&mut self, addr: Address) -> ClientResult<()> {

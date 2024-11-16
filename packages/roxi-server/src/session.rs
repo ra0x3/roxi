@@ -69,6 +69,7 @@ impl SessionManager {
             return Err(ServerError::Unauthenticated);
         }
 
+        tracing::info!("{client_id:?} authenticated. Adding to sessions");
         self.sessions.write().await.insert(
             client_id.clone(),
             Session::new(self.config.session_ttl(), client_config),
@@ -93,6 +94,7 @@ impl SessionManager {
                 None
             })
             .collect::<Vec<Session>>();
+        tracing::info!("Selecting gateway peer from sessions: {items:?}");
         let mut rng = thread_rng();
         if let Some(session) = items.choose(&mut rng).cloned() {
             return session.gateway_remote_addr();

@@ -115,6 +115,8 @@ impl Server {
                     stream,
                 )
                 .await?;
+
+                // FIXME: Do we need this?
             }
             MessageKind::GatewayRequest => {
                 self.ensure_authenticated(
@@ -130,6 +132,9 @@ impl Server {
                     .await?;
 
                 let peer_client = ClientId::from(peer_addr.clone());
+                tracing::info!(
+                    "Peer {peer_client:?} serving GatewayRequest from {client_id:?}"
+                );
 
                 let peer_stream = self
                     .client_streams
