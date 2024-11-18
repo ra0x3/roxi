@@ -135,4 +135,141 @@ impl SessionManager {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_peer_for_gateway() {
+        let content1 = r#"
+path: /Users/rashad/dev/repos/roxi/client.local.yaml
+
+network:
+  nat:
+    delay: 2
+    attempts: 3
+
+  server:
+    interface: "0.0.0.0"
+    ip: "18.117.198.57"
+    ports:
+      tcp: 8080
+      udp: 5675
+
+  stun:
+    ip: ~
+    port: ~
+
+  gateway:
+    interface: "0.0.0.0"
+    ip: "192.168.1.228"
+    ports:
+      tcp: 8081
+      udp: 5677
+    max_clients: 10
+
+  wireguard:
+    type: "wgquick"
+    wgquick:
+      config: "/Users/rashad/dev/repos/roxi/wg0.conf.example"
+    boringtun:
+      private_key: "<ServerPrivateKey>"
+      public_key: "<ServerPublicKey>"
+      address: "10.0.0.1"
+      network_size: "24"
+      port: 51820
+      dns: "1.1.1.1"
+      peers:
+        - public_key: "<ServerPublicKey>"
+          allowed_ips: "10.0.0.2/32"
+          endpoint: "<ClientIPAddress>:51820"
+          persistent_keep_alive: 25
+
+auth:
+  shared_key: "roxi-XXX"
+"#;
+
+        let content2 = r#"
+path: /Users/rashad/dev/repos/roxi/client.local.yaml
+
+network:
+  nat:
+    delay: 2
+    attempts: 3
+
+  server:
+    interface: "0.0.0.0"
+    ip: "18.117.198.57"
+    ports:
+      tcp: 8080
+      udp: 5675
+
+  stun:
+    ip: ~
+    port: ~
+
+  gateway:
+    interface: "0.0.0.0"
+    ip: "192.168.1.227"
+    ports:
+      tcp: 8081
+      udp: 5677
+    max_clients: 10
+
+  wireguard:
+    type: "wgquick"
+    wgquick:
+      config: "/Users/rashad/dev/repos/roxi/wg0.conf.example"
+    boringtun:
+      private_key: "<ServerPrivateKey>"
+      public_key: "<ServerPublicKey>"
+      address: "10.0.0.1"
+      network_size: "24"
+      port: 51820
+      dns: "1.1.1.1"
+      peers:
+        - public_key: "<ServerPublicKey>"
+          allowed_ips: "10.0.0.2/32"
+          endpoint: "<ClientIPAddress>:51820"
+          persistent_keep_alive: 25
+
+auth:
+  shared_key: "roxi-XXX"
+"#;
+
+        // Must match config above
+        let c1 = ClientId::from("192.168.1.228:8081");
+        let c2 = ClientId::from("192.168.1.227:8081");
+
+        let c1_config = ClientConfig::try_from(content1).unwrap();
+        let c2_config = ClientConfig::try_from(content2).unwrap();
+
+        let p = std::path::Path::new("./../../server.yaml");
+
+        let srv_config = ServerConfig::try_from(p).unwrap();
+        let sessions = SessionManager::new(srv_config);
+
+        let _ = sessions.authenticate(&c1, &c1_config).await;
+        assert_eq!(sessions.len().await, 1);
+        assert!(sessions.exists(&c1).await);
+        assert!(!sessions.exists(&c2).await);
+
+        let result = sessions.get_peer_for_gateway(&c1).await;
+        assert!(matches!(result, Err(ServerError::NoAvailablePeers)));
+
+        let _ = sessions.authenticate(&c2, &c2_config).await;
+        assert_eq!(sessions.len().await, 2);
+        assert!(sessions.exists(&c2).await);
+
+        let result = sessions.get_peer_for_gateway(&c1).await.unwrap();
+        let expected = Address::try_from(&c2).unwrap();
+        assert_eq!(expected, result);
+
+        let result = sessions.get_peer_for_gateway(&c2).await.unwrap();
+        let expected = Address::try_from(&c1).unwrap();
+        assert_eq!(expected, result);
+
+        sessions.remove(&c1).await;
+        assert_eq!(sessions.len().await, 1);
+    }
+}

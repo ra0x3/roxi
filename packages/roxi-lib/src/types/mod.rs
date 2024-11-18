@@ -19,7 +19,7 @@ pub enum InterfaceKind {
     Udp,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct Address {
     ip: Ipv4Addr,
     port: u16,
@@ -50,6 +50,14 @@ impl TryFrom<String> for Address {
         let ip: Ipv4Addr = parts.next().unwrap().parse().unwrap();
         let port: u16 = parts.next().unwrap().parse().unwrap();
         Ok(Self { ip, port })
+    }
+}
+
+impl TryFrom<&ClientId> for Address {
+    type Error = anyhow::Error;
+    fn try_from(c: &ClientId) -> Result<Self, Self::Error> {
+        let c = c.to_string();
+        Self::try_from(c)
     }
 }
 
