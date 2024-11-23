@@ -110,6 +110,13 @@ impl Network {
     pub fn set_stun(&mut self, stun: Stun) {
         self.stun = stun;
     }
+
+    pub fn wgquick_config_path(&self) -> Option<&PathBuf> {
+        match &self.wireguard.wgquick {
+            Some(wgquick) => Some(&wgquick.config),
+            None => None,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Hash)]
@@ -120,6 +127,14 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn wgquick_config_path(&self) -> Option<&PathBuf> {
+        self.network.wgquick_config_path()
+    }
+
+    pub fn path(&self) -> &PathBuf {
+        &self.path
+    }
+
     pub fn set_stun(&mut self, stun: Stun) {
         self.network.set_stun(stun);
     }

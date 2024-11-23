@@ -2,7 +2,7 @@ pub const WIREGUARD_INTERFACE: &str = "wg0";
 
 pub const SERVER_FILENAME: &str = "server";
 
-pub const CLIENT_FILENAME: &str = "client";
+pub const PEER_FILENAME: &str = "client";
 
 pub const ROXI_CONFIG_DIR_REALPATH: &str = "~/.config/roxi";
 

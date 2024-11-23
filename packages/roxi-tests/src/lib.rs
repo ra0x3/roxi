@@ -1,10 +1,15 @@
 pub mod utils {
 
+    use regex::Regex;
     use roxi_client::{Client, Config as ClientConfig};
     use roxi_lib::constant;
     use roxi_server::{Config as ServerConfig, Server};
-    use std::{fs::{File, self}, io::Write, path::Path};
-    use std::sync::Arc;
+    use std::{
+        env,
+        fs::{self, File},
+        io::Write,
+        path::{Path, PathBuf},
+    };
 
     pub const IP_ONE: &str = "192.168.1.1";
     pub const IP_TWO: &str = "192.168.1.2";
@@ -16,29 +21,30 @@ pub mod utils {
     }
 
     pub fn wgconf_name(input: &str) -> String {
-        format!("{input}.{{constant::WIREGUARD_INTERFACE}}.conf")
+        format!("{}-{}.conf", input, constant::WIREGUARD_INTERFACE)
     }
 
-    pub async fn bootstrap_new_server() -> Server {
-        let (path, content) = server_config_content();
+    pub async fn setup_server(ip: &str) -> Server {
+        let (path, content) = server_config_content(ip);
 
         File::create(&path)
             .unwrap()
             .write_all(content.as_bytes())
             .unwrap();
 
-        let config = ServerConfig::try_from(path.as_str()).unwrap();
-        
+        let path = Path::new(&path);
+        let config = ServerConfig::try_from(path).unwrap();
+
         Server::new(config).await.unwrap()
     }
 
-    pub async fn bootstrap_new_peer(ip: &str) -> Client {
-        let (client_content, client_filepath) = peer_client_config_content(ip);
-        let (wg_content, wg_filepath) = peer_wireguard_config_content(ip);
+    pub async fn setup_peer(ip: &str) -> Client {
+        let (peer_filepath, peer_content) = peer_peer_config_content(ip);
+        let (wg_filepath, wg_content) = peer_wireguard_config_content(ip);
 
-        File::create(&client_filepath)
+        File::create(&peer_filepath)
             .unwrap()
-            .write_all(client_content.as_bytes())
+            .write_all(peer_content.as_bytes())
             .unwrap();
 
         File::create(&wg_filepath)
@@ -46,21 +52,24 @@ pub mod utils {
             .write_all(wg_content.as_bytes())
             .unwrap();
 
-          let config = ClientConfig::try_from(client_filepath.as_str()).unwrap();
+        let p = Path::new(&peer_filepath);
+        let config = ClientConfig::try_from(p).unwrap();
 
         Client::new(config).await.unwrap()
     }
 
-    pub fn server_config_content() -> (String, String) {
+    pub fn server_config_content(ip: &str) -> (String, String) {
+        let name = format!("{}-{}", ip, constant::SERVER_FILENAME);
         let path =
-            Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(constant::SERVER_FILENAME);
-        let path = path.display();
+            Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(yaml_filename(&name));
+        let path = expand_tilde(&path).display().to_string();
+
+        println!("Server config path: {}", path);
 
         (
             path.to_string(),
             format!(
-                r#"
-path: {path}
+                r#"path: {path}
 
 network:
   server:
@@ -74,127 +83,129 @@ network:
 auth:
   shared_key: "roxi-XXX"
   session_ttl: 3600
-
-          "#
+"#
             ),
         )
+    }
+
+    fn expand_tilde(p: &Path) -> PathBuf {
+        if let Some(pstr) = p.to_str() {
+            if pstr.starts_with("~") {
+                if let Ok(home) = env::var("HOME") {
+                    return PathBuf::from(pstr.replacen("~", &home, 1));
+                }
+            }
+        }
+        p.to_path_buf()
     }
 
     pub fn peer_wireguard_config_content(ip: &str) -> (String, String) {
         let path = Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(wgconf_name(ip));
-        let path = path.display();
+        let path = expand_tilde(&path).display().to_string();
+
         (
-            path.to_string(),
+            path,
             format!(
-                r#"
-[Interface]
-PrivateKey = $PRIVATE_KEY
-Address = {ip}/24
+                r#"[Interface]
+PrivateKey = "<ServerPrivateKey>"
+Address = "{ip}/24"
 ListenPort = 51820
-# PostUp = iptables -A FORWARD -i $INTERFACE -j ACCEPT; iptables -A FORWARD -o $INTERFACE -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-# PostDown = iptables -D FORWARD -i $INTERFACE -j ACCEPT; iptables -D FORWARD -o $INTERFACE -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-            "#
+"#
             ),
         )
     }
 
-    pub fn peer_client_config_content(ip: &str) -> (String, String) {
+    pub fn peer_peer_config_content(ip: &str) -> (String, String) {
         let client =
             Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(yaml_filename(ip));
-        let wgconf =
-            Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(wgconf_name(ip));
+        let wgconf = Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(wgconf_name(ip));
 
-        let client = client.display();
-        let wgconf = wgconf.display();
+        let client = expand_tilde(&client).display().to_string();
+        let wgconf = expand_tilde(&wgconf).display().to_string();
+
         (
-          client.to_string(),
+            client.clone(),
             format!(
-                r#"
-    path: {client}
+                r#"path: {client}
 
-    network:
-      nat:
-        delay: 2
-        attempts: 3
+network:
+  nat:
+    delay: 2
+    attempts: 3
 
-      server:
-        interface: "0.0.0.0"
-        ip: "127.0.0.1"
-        ports:
-          tcp: 8080
-          udp: 5675
+  server:
+    interface: "0.0.0.0"
+    ip: "127.0.0.1"
+    ports:
+      tcp: 8080
+      udp: 5675
 
-      stun:
-        ip: ~
-        port: ~
+  stun:
+    ip: ~
+    port: ~
 
-      gateway:
-        interface: "0.0.0.0"
-        ip: "127.0.0.1"
-        ports:
-          tcp: 8081
-          udp: 5677
-        max_clients: 10
+  gateway:
+    interface: "0.0.0.0"
+    ip: "127.0.0.1"
+    ports:
+      tcp: 8081
+      udp: 5677
+    max_clients: 10
 
-      wireguard:
-        type: "wgquick"
-        wgquick:
-          config: "{wgconf}"
-        boringtun:
-          private_key: "<ServerPrivateKey>"
-          public_key: "<ServerPublicKey>"
-          address: "10.0.0.1"
-          network_size: "24"
-          port: 51820
-          dns: "1.1.1.1"
-          peers:
-            - public_key: "<ClientPublicKey>"
-              allowed_ips: "10.0.0.2/32"
-              endpoint: "<ClientIPAddress>:51820"
-              persistent_keep_alive: 25
+  wireguard:
+    type: "wgquick"
+    wgquick:
+      config: "{wgconf}"
+    boringtun:
+      private_key: "<ServerPrivateKey>"
+      public_key: "<ServerPublicKey>"
+      address: "10.0.0.1"
+      network_size: "24"
+      port: 51820
+      dns: "1.1.1.1"
+      peers:
+        - public_key: "<ClientPublicKey>"
+          allowed_ips: "10.0.0.2/32"
+          endpoint: "<ClientIPAddress>:51820"
+          persistent_keep_alive: 25
 
-    auth:
-      shared_key: "roxi-XXX"
-    "#
+auth:
+  shared_key: "roxi-XXX"
+  "#
             ),
         )
     }
 
-    pub fn bootstrap_env() {}
+    pub async fn cleanup_config_files() {
+        let rgx = Regex::new(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\.").unwrap();
+        let dir = Path::new(constant::ROXI_CONFIG_DIR_REALPATH);
+        let dir = expand_tilde(dir);
+        for entry in fs::read_dir(dir).unwrap() {
+            let entry = entry.unwrap();
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
 
-    pub fn teardown_env() {}
-
-    pub async fn demolish_client(mut client: Client) {
-
-      client.stop().await.unwrap();
-        let yml = Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(constant::CLIENT_FILENAME);
-        fs::remove_file(yml).unwrap();
-
-        let wgconf = Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(constant::WIREGUARD_INTERFACE);
-        fs::remove_file(wgconf).unwrap();
-    }
-
-    pub async fn demolish_server(srv: Arc<Server>) {
-        srv.clone().stop().await.unwrap();
-
-        let yml = Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(constant::SERVER_FILENAME);
-        fs::remove_file(yml).unwrap();
-
-        let wgconf = Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(constant::WIREGUARD_INTERFACE);
-        fs::remove_file(wgconf).unwrap();
+            if rgx.is_match(&name) {
+                let path = entry.path();
+                if path.is_file() {
+                    fs::remove_file(&path).unwrap();
+                    println!("Removed file: {path:?}");
+                }
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod integration_tests {
+    use crate::utils::*;
     use async_std::sync::Arc;
     use tokio::time::{timeout, Duration};
-    use crate::utils::*;
 
     #[tokio::test]
     async fn test_peer_server_rpc_ping() {
-        let srv = bootstrap_new_server().await;
-        let mut peer = bootstrap_new_peer(IP_ONE).await;
+        let srv = setup_server(IP_ONE).await;
+        let mut peer = setup_peer(IP_TWO).await;
         let srv = Arc::new(srv);
         let handle = tokio::spawn({
             let srvc = Arc::clone(&srv);
@@ -206,5 +217,9 @@ mod integration_tests {
         assert!(ping.unwrap().is_ok(), "Ping failed on server response");
 
         handle.abort();
+
+        peer.stop().await.unwrap();
+        srv.clone().stop().await.unwrap();
+        cleanup_config_files().await;
     }
 }

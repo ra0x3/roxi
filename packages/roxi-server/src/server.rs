@@ -327,40 +327,36 @@ impl Server {
     pub async fn stop(self: Arc<Self>) -> ServerResult<()> {
         tracing::info!("Initiating graceful server shutdown");
 
-    // Close all existing client TCP connections
-    {
-        let mut clients = self.client_streams.write().await;
-        for (client_id, stream) in clients.iter() {
-            tracing::info!("Closing connection for client: {:?}", client_id);
-            let mut stream_guard = stream.lock().await;
-            
-            // Try to send shutdown message to client
-            let _ = self.send(
-                client_id,
-                Message::new(
-                    MessageKind::ServerShutdown,
-                    MessageStatus::ServiceUnavailable,
-                    self.config.remote_addr(InterfaceKind::Tcp),
-                    None,
-                ),
-                stream.clone(),
-            ).await;
-            
-            // Force close the stream using AsyncWriteExt::shutdown
-            let _ = AsyncWriteExt::shutdown(&mut *stream_guard).await;
+        {
+            let mut clients = self.client_streams.write().await;
+            for (client_id, stream) in clients.iter() {
+                tracing::info!("Closing connection for client: {:?}", client_id);
+                let mut stream_guard = stream.lock().await;
+
+                // Try to send shutdown message to client
+                let _ = self
+                    .send(
+                        client_id,
+                        Message::new(
+                            MessageKind::ServerShutdown,
+                            MessageStatus::ServiceUnavailable,
+                            self.config.remote_addr(InterfaceKind::Tcp),
+                            None,
+                        ),
+                        stream.clone(),
+                    )
+                    .await;
+                let _ = AsyncWriteExt::shutdown(&mut *stream_guard).await;
+            }
+            clients.clear();
         }
-        clients.clear();
-    }
-    
-        // Clean up session state
+
         self.client_sessions.clear().await?;
-    
-        // Clear STUN information
+
         self.client_stun.write().await.clear();
-    
-        // Drop the semaphore to prevent new connections
+
         drop(self.client_limit.clone());
-    
+
         tracing::info!("Server shutdown complete");
         Ok(())
     }

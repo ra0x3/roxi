@@ -133,9 +133,8 @@ impl SessionManager {
         }
     }
 
-
     pub async fn clear(&self) -> ServerResult<()> {
-      Ok(())
+        Ok(())
     }
 }
 
