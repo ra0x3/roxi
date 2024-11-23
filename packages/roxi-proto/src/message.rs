@@ -15,6 +15,7 @@ pub enum MessageStatus {
     BadData = 405,
     ImATeapot = 419,
     InternalServerError = 500,
+    ServiceUnavailable = 503,
     Unknown,
 }
 
@@ -59,6 +60,8 @@ pub enum MessageKind {
     PeerTunnelInitResponse = 18,
     SeedRequest = 19,
     SeedResponse = 20,
+    ServerShutdown = 21,
+    PeerTunnelClose = 22,
     Unknown,
 }
 
@@ -86,6 +89,8 @@ impl From<u16> for MessageKind {
             18 => MessageKind::PeerTunnelInitResponse,
             19 => MessageKind::SeedRequest,
             20 => MessageKind::SeedResponse,
+            21 => MessageKind::ServerShutdown,
+            22 => MessageKind::PeerTunnelClose,
             _ => MessageKind::Unknown,
         }
     }

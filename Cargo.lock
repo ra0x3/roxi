@@ -1842,6 +1842,7 @@ dependencies = [
  "roxi-cli",
  "roxi-client",
  "roxi-crypto",
+ "roxi-lib",
  "roxi-proto",
  "roxi-server",
  "tokio",

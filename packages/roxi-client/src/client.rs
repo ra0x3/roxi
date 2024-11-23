@@ -259,4 +259,21 @@ impl Client {
 
         Ok(None)
     }
+
+    pub async fn stop(&mut self) -> ClientResult<()> {
+        // if let Some((client_id, addr, stream)) = self.peer_stream.take() {
+        //     let _msg = self
+        //         .send(Message::new(
+        //             MessageKind::PeerTunnelClose,
+        //             MessageStatus::Pending,
+        //             addr,
+        //             Some(Vec::<u8>::from(client_id)),
+        //         ))
+        //         .await?;
+
+        //     stream.lock().await.shutdown().await?;
+        // }
+
+        Ok(())
+    }
 }

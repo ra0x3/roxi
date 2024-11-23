@@ -1,5 +1,5 @@
 use crate::{error::ServerError, ServerResult};
-use roxi_lib::types::{config::WireGuard, InterfaceKind, SharedKey};
+use roxi_lib::types::{InterfaceKind, SharedKey};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -54,8 +54,6 @@ impl Server {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Network {
     server: Server,
-    tun: Tun,
-    wireguard: WireGuard,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -84,10 +82,6 @@ impl Config {
 
     pub fn session_ttl(&self) -> u64 {
         self.auth.session_ttl
-    }
-
-    pub fn wireguard(&self) -> WireGuard {
-        self.network.wireguard.clone()
     }
 }
 

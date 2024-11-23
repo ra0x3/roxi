@@ -132,6 +132,11 @@ impl SessionManager {
                 .retain(|_, session| !session.is_idle());
         }
     }
+
+
+    pub async fn clear(&self) -> ServerResult<()> {
+      Ok(())
+    }
 }
 
 #[cfg(test)]
