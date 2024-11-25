@@ -33,6 +33,7 @@ pub struct Server {
     ip: IpAddr,
     ports: Ports,
     max_clients: u16,
+    response_timeout: u64,
 }
 
 impl Server {
@@ -82,6 +83,10 @@ impl Config {
 
     pub fn session_ttl(&self) -> u64 {
         self.auth.session_ttl
+    }
+
+    pub fn response_timeout(&self) -> u64 {
+        self.network.server.response_timeout
     }
 }
 

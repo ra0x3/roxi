@@ -9,9 +9,7 @@ edition = "2021"
 async-std = { workspace = true }
 regex = { version = "1.11" }
 roxi-server = { path = "../roxi-server" }
-roxi-crypto = { path = "../roxi-crypto" }
 roxi-lib = { path = "../roxi-lib" }
-roxi-proto = { path = "../roxi-proto" }
-roxi-cli = { path = "../roxi-cli" }
 roxi-client = { path = "../roxi-client" }
 tokio = { workspace = true }
+tracing-subscriber = "0.3.18"

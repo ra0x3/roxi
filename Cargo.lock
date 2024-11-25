@@ -1840,13 +1840,11 @@ version = "0.0.0"
 dependencies = [
  "async-std",
  "regex",
- "roxi-cli",
  "roxi-client",
- "roxi-crypto",
  "roxi-lib",
- "roxi-proto",
  "roxi-server",
  "tokio",
+ "tracing-subscriber",
 ]
 
 [[package]]

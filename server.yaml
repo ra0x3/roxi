@@ -9,6 +9,7 @@ network:
       tcp: 8080
       udp: 5675
     max_clients: 10
+    response_timeout: 120
 
 auth:
   shared_key: "roxi-XXX"

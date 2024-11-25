@@ -11,6 +11,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream, UdpSocket},
     sync::{Mutex, RwLock, Semaphore},
+    time::{timeout, Duration},
 };
 
 const STUN_BINDING_REQUEST: u16 = 0x0001;
@@ -249,7 +250,7 @@ impl Server {
     ) -> ServerResult<()> {
         tracing::info!("Sending message to {client_id:?}: {msg:?}");
         let data = msg.serialize()?;
-        stream.lock().await.write_all(&data).await?;
+        let _ = stream.lock().await.write_all(&data).await;
         Ok(())
     }
 
@@ -331,11 +332,11 @@ impl Server {
             let mut clients = self.client_streams.write().await;
             for (client_id, stream) in clients.iter() {
                 tracing::info!("Closing connection for client: {:?}", client_id);
-                let mut stream_guard = stream.lock().await;
+                let mut guard = stream.lock().await;
 
-                // Try to send shutdown message to client
-                let _ = self
-                    .send(
+                if let Err(e) = timeout(
+                    Duration::from_secs(self.config.response_timeout()),
+                    self.send(
                         client_id,
                         Message::new(
                             MessageKind::ServerShutdown,
@@ -344,9 +345,13 @@ impl Server {
                             None,
                         ),
                         stream.clone(),
-                    )
-                    .await;
-                let _ = AsyncWriteExt::shutdown(&mut *stream_guard).await;
+                    ),
+                )
+                .await
+                {
+                    tracing::error!("Message timed out: {e}");
+                }
+                let _ = AsyncWriteExt::shutdown(&mut *guard).await;
             }
             clients.clear();
         }

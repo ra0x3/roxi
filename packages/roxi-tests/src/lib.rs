@@ -64,8 +64,6 @@ pub mod utils {
             Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(yaml_filename(&name));
         let path = expand_tilde(&path).display().to_string();
 
-        println!("Server config path: {}", path);
-
         (
             path.to_string(),
             format!(
@@ -79,6 +77,7 @@ network:
       tcp: 8080
       udp: 5675
     max_clients: 10
+    response_timeout: 2
 
 auth:
   shared_key: "roxi-XXX"
@@ -189,7 +188,6 @@ auth:
                 let path = entry.path();
                 if path.is_file() {
                     fs::remove_file(&path).unwrap();
-                    println!("Removed file: {path:?}");
                 }
             }
         }
@@ -202,8 +200,19 @@ mod integration_tests {
     use async_std::sync::Arc;
     use tokio::time::{timeout, Duration};
 
+    static INIT: std::sync::Once = std::sync::Once::new();
+
+    fn init_logging() {
+        INIT.call_once(|| {
+            tracing_subscriber::fmt().with_test_writer().init();
+        });
+    }
+
+    const TIMEOUT_SECS: u64 = 0x1;
+
     #[tokio::test]
     async fn test_peer_server_rpc_ping() {
+        init_logging();
         let srv = setup_server(IP_ONE).await;
         let mut peer = setup_peer(IP_TWO).await;
         let srv = Arc::new(srv);
@@ -212,9 +221,35 @@ mod integration_tests {
             async move { srvc.run().await }
         });
 
-        let ping = timeout(Duration::from_secs(5), peer.ping()).await;
+        let ping = timeout(Duration::from_secs(TIMEOUT_SECS), peer.ping()).await;
         assert!(ping.is_ok(), "Ping request timed out or failed");
         assert!(ping.unwrap().is_ok(), "Ping failed on server response");
+
+        handle.abort();
+
+        peer.stop().await.unwrap();
+        srv.clone().stop().await.unwrap();
+        cleanup_config_files().await;
+    }
+
+    #[tokio::test]
+    async fn test_peer_server_rpc_authenticate() {
+        init_logging();
+        let srv = setup_server(IP_ONE).await;
+        let mut peer = setup_peer(IP_TWO).await;
+        let srv = Arc::new(srv);
+        let handle = tokio::spawn({
+            let srvc = Arc::clone(&srv);
+            async move { srvc.run().await }
+        });
+
+        let response =
+            timeout(Duration::from_secs(TIMEOUT_SECS), peer.authenticate()).await;
+        assert!(response.is_ok(), "Authenticate request timed out or failed");
+        assert!(
+            response.unwrap().is_ok(),
+            "Authenticate failed on server response"
+        );
 
         handle.abort();
 
