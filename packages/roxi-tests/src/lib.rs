@@ -199,6 +199,7 @@ auth:
 mod integration_tests {
     use crate::utils::*;
     use async_std::sync::Arc;
+    use roxi_proto::{MessageKind, MessageStatus};
 
     static INIT: std::sync::Once = std::sync::Once::new();
 
@@ -220,8 +221,12 @@ mod integration_tests {
         });
 
         let ping = peer.ping().await;
-        assert!(ping.is_ok(), "Ping request timed out or failed");
-        assert!(ping.unwrap().is_some(), "Ping failed on server response");
+        assert!(ping.is_ok(), "Ping failed or timed out.");
+        assert!(ping.as_ref().unwrap().is_some(), "Ping response failed.");
+
+        let ping = ping.unwrap().unwrap();
+        assert_eq!(*ping.status(), MessageStatus::r#Ok);
+        assert_eq!(*ping.kind(), MessageKind::Pong);
 
         handle.abort();
 
@@ -241,8 +246,51 @@ mod integration_tests {
             async move { srvc.run().await }
         });
 
-        let response = peer.authenticate().await;
-        assert!(response.is_ok(), "Authenticate request timed out or failed");
+        let auth = peer.authenticate().await;
+        assert!(auth.is_ok(), "Auth failed or timed out.");
+        assert!(auth.as_ref().unwrap().is_some(), "Auth response failed.");
+
+        let auth = auth.unwrap().unwrap();
+        assert_eq!(*auth.status(), MessageStatus::r#Ok);
+        assert_eq!(*auth.kind(), MessageKind::AuthenticationResponse);
+
+        handle.abort();
+
+        peer.stop().await.unwrap();
+        srv.clone().stop().await.unwrap();
+        cleanup_config_files().await;
+    }
+
+    #[tokio::test]
+    async fn test_peer_server_rpc_seed() {
+        init_logging();
+        let srv = setup_server(IP_ONE).await;
+        let mut peer = setup_peer(IP_TWO).await;
+        let srv = Arc::new(srv);
+        let handle = tokio::spawn({
+            let srvc = Arc::clone(&srv);
+            async move { srvc.run().await }
+        });
+
+        // First request is unauthenticated.
+        let seed = peer.seed().await;
+        assert!(seed.is_ok(), "Seed failed or timed out.");
+        assert!(seed.as_ref().unwrap().is_some(), "Seed response failed.");
+
+        // Now we authenticate first.
+        let auth = peer.authenticate().await;
+        assert!(auth.is_ok(), "Auth failed or timed out.");
+        assert!(auth.as_ref().unwrap().is_some(), "Auth response failed.");
+        let auth = auth.unwrap().unwrap();
+        assert_eq!(*auth.status(), MessageStatus::r#Ok);
+        assert_eq!(*auth.kind(), MessageKind::AuthenticationResponse);
+        // let seed = peer.seed().await;
+        // assert!(seed.is_ok(), "Seed failed or timed out.");
+        // assert!(seed.as_ref().unwrap().is_some(), "Seed response failed.");
+
+        // let seed = seed.unwrap().unwrap();
+        // assert_eq!(*seed.status(), MessageStatus::r#Ok);
+        // assert_eq!(*seed.kind(), MessageKind::SeedResponse);
 
         handle.abort();
 

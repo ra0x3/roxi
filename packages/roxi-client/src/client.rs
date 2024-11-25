@@ -36,39 +36,47 @@ impl Client {
         })
     }
 
-    // TODO: Remove this?
-    pub async fn connect(&mut self) -> ClientResult<()> {
-        self.authenticate().await?;
-        self.stun().await?;
-        if let Some(addr) = self.request_gateway().await? {
-            self.nat_punch(addr).await?;
-        }
-
-        Ok(())
-    }
-
     pub async fn ping(&mut self) -> ClientResult<Option<Message>> {
-        self.send(Message::new(
-            MessageKind::Ping,
-            MessageStatus::Pending,
-            self.config.remote_addr(InterfaceKind::Tcp),
-            None,
-        ))
-        .await
+        match self
+            .send(Message::new(
+                MessageKind::Ping,
+                MessageStatus::Pending,
+                self.config.remote_addr(InterfaceKind::Tcp),
+                None,
+            ))
+            .await?
+        {
+            Some(msg) => {
+                tracing::info!("Successfully pinged client connection");
+                return Ok(Some(msg));
+            }
+            None => {
+                tracing::error!("Failed to ping client connection");
+                return Ok(None);
+            }
+        }
     }
 
-    pub async fn authenticate(&mut self) -> ClientResult<()> {
-        let data = self.config.clone().try_into()?;
-        let _msg = self
+    pub async fn authenticate(&mut self) -> ClientResult<Option<Message>> {
+        let secret = self.config.clone().try_into()?;
+        match self
             .send(Message::new(
                 MessageKind::AuthenticationRequest,
                 MessageStatus::Pending,
                 self.config.remote_addr(InterfaceKind::Tcp),
-                Some(data),
+                Some(secret),
             ))
-            .await?;
+            .await? {
+                Some(msg) => {
+                    tracing::info!("Successfully authenticated client connection");
+                    return Ok(Some(msg));
 
-        Ok(())
+                }
+                None => {
+                    tracing::error!("Failed to authenticate client connection");
+                    return Ok(None);
+                }
+            }
     }
 
     pub async fn stun(&mut self) -> ClientResult<()> {
@@ -95,20 +103,19 @@ impl Client {
         Ok(())
     }
 
-    pub async fn seed(&mut self) -> ClientResult<()> {
-        if let Ok(_msg) = self
+    pub async fn seed(&mut self) -> ClientResult<Option<Message>> {
+        let msg = self
             .send(Message::new(
                 MessageKind::SeedRequest,
                 MessageStatus::Pending,
                 self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
-            .await
-        {
-            tracing::info!("Successfully seeded client connection");
-        }
+            .await?;
 
-        Ok(())
+        tracing::info!("Successfully seeded client connection");
+
+        Ok(msg)
     }
 
     pub async fn request_stun_info(&mut self) -> ClientResult<()> {

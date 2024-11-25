@@ -1842,6 +1842,7 @@ dependencies = [
  "regex",
  "roxi-client",
  "roxi-lib",
+ "roxi-proto",
  "roxi-server",
  "tokio",
  "tracing-subscriber",

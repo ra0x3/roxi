@@ -171,7 +171,7 @@ impl Server {
             MessageKind::SeedRequest => {
                 self.ensure_authenticated(
                     &client_id,
-                    MessageKind::SeedRequest,
+                    MessageKind::SeedResponse,
                     stream.clone(),
                 )
                 .await?;
