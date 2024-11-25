@@ -47,17 +47,15 @@ impl Client {
         Ok(())
     }
 
-    pub async fn ping(&mut self) -> ClientResult<()> {
-        let _msg = self
+    pub async fn ping(&mut self) -> ClientResult<Option<Message>> {
+        Ok(self
             .send(Message::new(
                 MessageKind::Ping,
                 MessageStatus::Pending,
                 self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
-            .await?;
-
-        Ok(())
+            .await?)
     }
 
     pub async fn authenticate(&mut self) -> ClientResult<()> {

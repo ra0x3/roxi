@@ -4,7 +4,7 @@ use std::net::Ipv4Addr;
 use strum::{AsRefStr, Display};
 
 #[repr(u16)]
-#[derive(Debug, AsRefStr, Display, Serialize, Deserialize)]
+#[derive(Debug, AsRefStr, Display, Eq, PartialEq, Serialize, Deserialize)]
 pub enum MessageStatus {
     Pending = 0,
     r#Ok = 200,
@@ -37,7 +37,7 @@ impl From<u16> for MessageStatus {
 }
 
 #[repr(u16)]
-#[derive(Debug, AsRefStr, Display, Serialize, Deserialize)]
+#[derive(Debug, AsRefStr, Display, Eq, PartialEq, Serialize, Deserialize)]
 pub enum MessageKind {
     Ping = 0,
     Pong = 1,

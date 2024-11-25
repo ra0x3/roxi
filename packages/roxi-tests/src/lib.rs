@@ -39,7 +39,7 @@ pub mod utils {
     }
 
     pub async fn setup_peer(ip: &str) -> Client {
-        let (peer_filepath, peer_content) = peer_peer_config_content(ip);
+        let (peer_filepath, peer_content) = peer_config_content(ip);
         let (wg_filepath, wg_content) = peer_wireguard_config_content(ip);
 
         File::create(&peer_filepath)
@@ -115,7 +115,7 @@ ListenPort = 51820
         )
     }
 
-    pub fn peer_peer_config_content(ip: &str) -> (String, String) {
+    pub fn peer_config_content(ip: &str) -> (String, String) {
         let client =
             Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(yaml_filename(ip));
         let wgconf = Path::new(constant::ROXI_CONFIG_DIR_REALPATH).join(wgconf_name(ip));

@@ -1,6 +1,6 @@
 pub(crate) use crate::command::{
     auth, connect, gateway, hello, ping, punch, quick, regateway, seed, serve, stinfo,
-    stun, tinfo,
+    stun, tinfo, tunnel,
 };
 use clap::{Parser, Subcommand};
 
@@ -40,6 +40,11 @@ pub enum RoxiCli {
     TInfo(tinfo::Args),
     #[clap(name = "regateway", about = "Request gateway")]
     ReGateway(regateway::Args),
+    #[clap(
+        name = "tunnel",
+        about = "Create tunnel (combines ping, auth, stinfo, tinfo, punch)"
+    )]
+    Tunnel(tunnel::Args),
 }
 
 pub async fn run_cli() -> Result<(), anyhow::Error> {
@@ -59,5 +64,6 @@ pub async fn run_cli() -> Result<(), anyhow::Error> {
         RoxiCli::StInfo(command) => stinfo::exec(command).await,
         RoxiCli::TInfo(command) => tinfo::exec(command).await,
         RoxiCli::ReGateway(command) => regateway::exec(command).await,
+        RoxiCli::Tunnel(command) => tunnel::exec(command).await,
     }
 }
