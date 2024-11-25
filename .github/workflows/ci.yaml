@@ -111,4 +111,4 @@ jobs:
         run: cargo build --target ${{ matrix.job.target }} --release
 
       - name: Test
-        run: cargo test --target ${{ matrix.job.target }}
+        run: cargo test --target ${{ matrix.job.target }} -- --test-threads=1

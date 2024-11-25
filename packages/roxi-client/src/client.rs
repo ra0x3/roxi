@@ -35,8 +35,6 @@ impl Client {
     pub async fn new(config: Config) -> ClientResult<Self> {
         let wireguard_config = WireGuardConfig::try_from(config.wireguard())?;
 
-        tracing::info!("{}", config.addr(InterfaceKind::Udp));
-
         Ok(Self {
             config: config.clone(),
             wireguard_config: Arc::new(Mutex::new(wireguard_config)),

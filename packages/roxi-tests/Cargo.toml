@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 async-std = { workspace = true }
+dirs = { version = "5.0" }
 rand = { version = "0.8" }
 regex = { version = "1.11" }
 roxi-lib = { path = "../roxi-lib" }

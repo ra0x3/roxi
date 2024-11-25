@@ -203,6 +203,7 @@ auth:
 #[cfg(test)]
 mod integration_tests {
     use crate::utils::*;
+    use std::fs;
     use async_std::sync::Arc;
     use roxi_lib::types::Address;
     use roxi_proto::{MessageKind, MessageStatus};
@@ -214,6 +215,15 @@ mod integration_tests {
         INIT.call_once(|| {
             tracing_subscriber::fmt().with_test_writer().init();
         });
+
+        if let Some(home_dir) = dirs::home_dir() {
+            let config_path = home_dir.join(".config").join("roxi");
+            if let Err(e) = fs::create_dir_all(&config_path) {
+                eprintln!("Failed to create config directory at {:?}: {}", config_path, e);
+            }
+        } else {
+            eprintln!("Could not determine the home directory");
+        }
     }
 
     #[tokio::test]
