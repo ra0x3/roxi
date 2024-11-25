@@ -24,14 +24,28 @@ pub struct Client {
 }
 
 impl Client {
+    pub fn client_id(&self) -> ClientId {
+        ClientId::from(self.config.gateway_remote_addr(InterfaceKind::Tcp))
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
     pub async fn new(config: Config) -> ClientResult<Self> {
         let wireguard_config = WireGuardConfig::try_from(config.wireguard())?;
+
+        tracing::info!("{}", config.addr(InterfaceKind::Udp));
 
         Ok(Self {
             config: config.clone(),
             wireguard_config: Arc::new(Mutex::new(wireguard_config)),
-            tcp: TcpStream::connect(&config.remote_addr(InterfaceKind::Tcp)).await?,
-            udp: UdpSocket::bind(&config.addr(InterfaceKind::Udp)).await?,
+            tcp: TcpStream::connect(&config.remote_addr(InterfaceKind::Tcp))
+                .await
+                .expect("Failed to connect to TCP server"),
+            udp: UdpSocket::bind(&config.addr(InterfaceKind::Udp))
+                .await
+                .expect("Failed to bind to UDP socket"),
             peer_stream: None,
         })
     }
@@ -48,11 +62,11 @@ impl Client {
         {
             Some(msg) => {
                 tracing::info!("Successfully pinged client connection");
-                return Ok(Some(msg));
+                Ok(Some(msg))
             }
             None => {
                 tracing::error!("Failed to ping client connection");
-                return Ok(None);
+                Ok(None)
             }
         }
     }
@@ -66,17 +80,17 @@ impl Client {
                 self.config.remote_addr(InterfaceKind::Tcp),
                 Some(secret),
             ))
-            .await? {
-                Some(msg) => {
-                    tracing::info!("Successfully authenticated client connection");
-                    return Ok(Some(msg));
-
-                }
-                None => {
-                    tracing::error!("Failed to authenticate client connection");
-                    return Ok(None);
-                }
+            .await?
+        {
+            Some(msg) => {
+                tracing::info!("Successfully authenticated client connection");
+                Ok(Some(msg))
             }
+            None => {
+                tracing::error!("Failed to authenticate client connection");
+                Ok(None)
+            }
+        }
     }
 
     pub async fn stun(&mut self) -> ClientResult<()> {
@@ -104,33 +118,46 @@ impl Client {
     }
 
     pub async fn seed(&mut self) -> ClientResult<Option<Message>> {
-        let msg = self
+        self.authenticate().await?;
+        match self
             .send(Message::new(
                 MessageKind::SeedRequest,
                 MessageStatus::Pending,
                 self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
-            .await?;
-
-        tracing::info!("Successfully seeded client connection");
-
-        Ok(msg)
+            .await?
+        {
+            Some(msg) => {
+                tracing::info!("Successfully seeded client connection");
+                Ok(Some(msg))
+            }
+            None => {
+                tracing::error!("Failed to seed client connection");
+                Ok(None)
+            }
+        }
     }
 
-    pub async fn request_stun_info(&mut self) -> ClientResult<()> {
-        if let Ok(_msg) = self
+    pub async fn request_stun_info(&mut self) -> ClientResult<Option<Message>> {
+        match self
             .send(Message::new(
                 MessageKind::StunInfoRequest,
                 MessageStatus::Pending,
                 self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
-            .await
+            .await?
         {
-            tracing::info!("Successfully requested stun info");
+            Some(msg) => {
+                tracing::info!("Successfully received STUN info");
+                Ok(Some(msg))
+            }
+            None => {
+                tracing::error!("Failed to receive STUN info");
+                Ok(None)
+            }
         }
-        Ok(())
     }
 
     pub async fn request_gateway(&mut self) -> ClientResult<Option<Address>> {
@@ -276,6 +303,7 @@ impl Client {
     }
 
     pub async fn stop(&mut self) -> ClientResult<()> {
+        tracing::info!("Stopping client");
         // if let Some((client_id, addr, stream)) = self.peer_stream.take() {
         //     let _msg = self
         //         .send(Message::new(

@@ -15,3 +15,4 @@ pub use error::ServerError;
 pub use gateway::Gateway;
 pub use ip::IpPoolManager;
 pub use server::Server;
+pub use session::SessionManager;

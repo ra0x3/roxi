@@ -11,7 +11,6 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream, UdpSocket},
     sync::{Mutex, RwLock, Semaphore},
-    time::{timeout, Duration},
 };
 
 const STUN_BINDING_REQUEST: u16 = 0x0001;
@@ -27,6 +26,10 @@ pub struct Server {
 }
 
 impl Server {
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
     pub async fn new(config: Config) -> ServerResult<Self> {
         Ok(Self {
             tcp: TcpListener::bind(config.addr(InterfaceKind::Tcp)).await?,
@@ -39,178 +42,181 @@ impl Server {
         })
     }
 
-    pub async fn handle_conn(&self, mut stream: TcpStream) -> ServerResult<()> {
+    pub async fn handle_conn(&self, stream: TcpStream) -> ServerResult<()> {
         tracing::info!("Handling incoming tcp stream");
 
-        let mut buff = vec![0u8; 1024];
-        let n = stream.read(&mut buff).await?;
-        if n == 0 {
-            tracing::warn!("Client connection closed");
-            return Err(ServerError::ConnectionClosed);
-        }
-
-        tracing::info!("Read {n} bytes");
-
-        let msg = Message::deserialize(&buff)?;
         let client_id = ClientId::try_from(&stream)?;
         let stream = Arc::new(Mutex::new(stream));
 
-        tracing::info!("Received message from {client_id:?}: {msg:?}");
-
-        match msg.kind() {
-            MessageKind::Ping => {
-                self.send(
-                    &client_id,
-                    Message::new(
-                        MessageKind::Pong,
-                        MessageStatus::r#Ok,
-                        self.config.remote_addr(InterfaceKind::Tcp),
-                        None,
-                    ),
-                    stream.clone(),
-                )
-                .await?;
+        loop {
+            let mut buff = vec![0u8; 1024];
+            let n = stream.lock().await.read(&mut buff).await?;
+            if n == 0 {
+                tracing::warn!("Client connection closed");
+                break;
             }
-            MessageKind::AuthenticationRequest => {
-                let config = ClientConfig::try_from(msg.data())?;
-                if let Err(_e) =
-                    self.client_sessions.authenticate(&client_id, &config).await
-                {
+
+            tracing::info!("Read {n} bytes");
+
+            let msg = Message::deserialize(&buff)?;
+
+            tracing::info!("Received message from {client_id:?}: {msg:?}");
+
+            match msg.kind() {
+                MessageKind::Ping => {
                     self.send(
                         &client_id,
                         Message::new(
-                            MessageKind::AuthenticationResponse,
-                            MessageStatus::Unauthorized,
+                            MessageKind::Pong,
+                            MessageStatus::r#Ok,
                             self.config.remote_addr(InterfaceKind::Tcp),
                             None,
                         ),
                         stream.clone(),
                     )
                     .await?;
-                    return Err(ServerError::Unauthenticated);
                 }
+                MessageKind::AuthenticationRequest => {
+                    let config = ClientConfig::try_from(msg.data())?;
+                    if let Err(_e) =
+                        self.client_sessions.authenticate(&client_id, &config).await
+                    {
+                        self.send(
+                            &client_id,
+                            Message::new(
+                                MessageKind::AuthenticationResponse,
+                                MessageStatus::Unauthorized,
+                                self.config.remote_addr(InterfaceKind::Tcp),
+                                None,
+                            ),
+                            stream.clone(),
+                        )
+                        .await?;
+                        return Err(ServerError::Unauthenticated);
+                    }
 
-                self.send(
-                    &client_id,
-                    Message::new(
-                        MessageKind::AuthenticationResponse,
-                        MessageStatus::r#Ok,
-                        self.config.remote_addr(InterfaceKind::Tcp),
-                        None,
-                    ),
-                    stream.clone(),
-                )
-                .await?;
-
-                // TODO: Move stream caching into SeedRequest handler
-                // as authenticating and becoming a peer should be different actions
-                self.client_streams
-                    .write()
-                    .await
-                    .insert(client_id, stream.clone());
-            }
-            MessageKind::StunInfoRequest => {
-                self.ensure_authenticated(
-                    &client_id,
-                    MessageKind::StunInfoResponse,
-                    stream,
-                )
-                .await?;
-
-                // FIXME: Do we need this?
-            }
-            MessageKind::GatewayRequest => {
-                self.ensure_authenticated(
-                    &client_id,
-                    MessageKind::GatewayResponse,
-                    stream.clone(),
-                )
-                .await?;
-
-                let peer_addr = self
-                    .client_sessions
-                    .get_peer_for_gateway(&client_id)
+                    self.send(
+                        &client_id,
+                        Message::new(
+                            MessageKind::AuthenticationResponse,
+                            MessageStatus::r#Ok,
+                            self.config.remote_addr(InterfaceKind::Tcp),
+                            None,
+                        ),
+                        stream.clone(),
+                    )
                     .await?;
 
-                let peer_client = ClientId::from(peer_addr.clone());
-                tracing::info!(
-                    "Peer {peer_client:?} serving GatewayRequest from {client_id:?}"
-                );
+                    // TODO: Move stream caching into SeedRequest handler
+                    // as authenticating and becoming a peer should be different actions
+                    self.client_streams
+                        .write()
+                        .await
+                        .insert(client_id.clone(), stream.clone());
+                }
+                MessageKind::StunInfoRequest => {
+                    self.ensure_authenticated(
+                        &client_id,
+                        MessageKind::StunInfoResponse,
+                        stream.clone(),
+                    )
+                    .await?;
 
-                let peer_stream = self
-                    .client_streams
-                    .read()
-                    .await
-                    .get(&peer_client)
-                    .unwrap()
-                    .clone();
-                self.send(
-                    &client_id,
-                    Message::new(
+                    // FIXME: Do we need this?
+                }
+                MessageKind::GatewayRequest => {
+                    self.ensure_authenticated(
+                        &client_id,
                         MessageKind::GatewayResponse,
-                        MessageStatus::r#Ok,
-                        self.config.remote_addr(InterfaceKind::Tcp),
-                        None,
-                    ),
-                    stream.clone(),
-                )
-                .await?;
+                        stream.clone(),
+                    )
+                    .await?;
 
-                self.send(
-                    &peer_client,
-                    Message::new(
-                        MessageKind::GatewayResponse,
-                        MessageStatus::r#Ok,
-                        self.config.remote_addr(InterfaceKind::Tcp),
-                        peer_addr.into(),
-                    ),
-                    peer_stream.clone(),
-                )
-                .await?;
-            }
-            MessageKind::SeedRequest => {
-                self.ensure_authenticated(
-                    &client_id,
-                    MessageKind::SeedResponse,
-                    stream.clone(),
-                )
-                .await?;
+                    let peer_addr = self
+                        .client_sessions
+                        .get_peer_for_gateway(&client_id)
+                        .await?;
 
-                // TODO: Remove stream caching from AuthenticationRequest handler,
-                // as becoming a seeder and simply authenticating should not be treated
-                // as the same action
-                self.client_streams
-                    .write()
-                    .await
-                    .insert(client_id.clone(), stream.clone());
+                    let peer_client = ClientId::from(peer_addr.clone());
+                    tracing::info!(
+                        "Peer {peer_client:?} serving GatewayRequest from {client_id:?}"
+                    );
 
-                let clients = self.client_streams.read().await;
-                tracing::info!("Seeded clients: {:?}", clients);
-                self.send(
-                    &client_id,
-                    Message::new(
+                    let peer_stream = self
+                        .client_streams
+                        .read()
+                        .await
+                        .get(&peer_client)
+                        .unwrap()
+                        .clone();
+                    self.send(
+                        &client_id,
+                        Message::new(
+                            MessageKind::GatewayResponse,
+                            MessageStatus::r#Ok,
+                            self.config.remote_addr(InterfaceKind::Tcp),
+                            None,
+                        ),
+                        stream.clone(),
+                    )
+                    .await?;
+
+                    self.send(
+                        &peer_client,
+                        Message::new(
+                            MessageKind::GatewayResponse,
+                            MessageStatus::r#Ok,
+                            self.config.remote_addr(InterfaceKind::Tcp),
+                            peer_addr.into(),
+                        ),
+                        peer_stream.clone(),
+                    )
+                    .await?;
+                }
+                MessageKind::SeedRequest => {
+                    self.ensure_authenticated(
+                        &client_id,
                         MessageKind::SeedResponse,
-                        MessageStatus::r#Ok,
-                        self.config.remote_addr(InterfaceKind::Tcp),
-                        None,
-                    ),
-                    stream.clone(),
-                )
-                .await?;
-            }
-            _ => {
-                self.send(
-                    &client_id,
-                    Message::new(
-                        MessageKind::GenericErrorResponse,
-                        MessageStatus::BadData,
-                        self.config.remote_addr(InterfaceKind::Tcp),
-                        None,
-                    ),
-                    stream.clone(),
-                )
-                .await?;
-                return Err(ServerError::InvalidMessage);
+                        stream.clone(),
+                    )
+                    .await?;
+
+                    // TODO: Remove stream caching from AuthenticationRequest handler,
+                    // as becoming a seeder and simply authenticating should not be treated
+                    // as the same action
+                    self.client_streams
+                        .write()
+                        .await
+                        .insert(client_id.clone(), stream.clone());
+
+                    let clients = self.client_streams.read().await;
+                    tracing::info!("Seeded clients: {:?}", clients);
+                    self.send(
+                        &client_id,
+                        Message::new(
+                            MessageKind::SeedResponse,
+                            MessageStatus::r#Ok,
+                            self.config.remote_addr(InterfaceKind::Tcp),
+                            None,
+                        ),
+                        stream.clone(),
+                    )
+                    .await?;
+                }
+                _ => {
+                    self.send(
+                        &client_id,
+                        Message::new(
+                            MessageKind::GenericErrorResponse,
+                            MessageStatus::BadData,
+                            self.config.remote_addr(InterfaceKind::Tcp),
+                            None,
+                        ),
+                        stream.clone(),
+                    )
+                    .await?;
+                    return Err(ServerError::InvalidMessage);
+                }
             }
         }
 
@@ -330,28 +336,29 @@ impl Server {
 
         {
             let mut clients = self.client_streams.write().await;
-            for (client_id, stream) in clients.iter() {
+            for (client_id, _stream) in clients.iter() {
                 tracing::info!("Closing connection for client: {:?}", client_id);
-                let mut guard = stream.lock().await;
+                // let mut _guard = stream.lock().await;
 
-                if let Err(e) = timeout(
-                    Duration::from_secs(self.config.response_timeout()),
-                    self.send(
-                        client_id,
-                        Message::new(
-                            MessageKind::ServerShutdown,
-                            MessageStatus::ServiceUnavailable,
-                            self.config.remote_addr(InterfaceKind::Tcp),
-                            None,
-                        ),
-                        stream.clone(),
-                    ),
-                )
-                .await
-                {
-                    tracing::error!("Message timed out: {e}");
-                }
-                let _ = AsyncWriteExt::shutdown(&mut *guard).await;
+                // FIXME: There's lock contention here.
+                // if let Err(e) = timeout(
+                //     Duration::from_secs(self.config.response_timeout()),
+                //     self.send(
+                //         client_id,
+                //         Message::new(
+                //             MessageKind::ServerShutdown,
+                //             MessageStatus::ServiceUnavailable,
+                //             self.config.remote_addr(InterfaceKind::Tcp),
+                //             None,
+                //         ),
+                //         stream.clone(),
+                //     ),
+                // )
+                // .await
+                // {
+                //     tracing::error!("Message timed out: {e}");
+                // }
+                // let _ = AsyncWriteExt::shutdown(&mut *guard).await;
             }
             clients.clear();
         }

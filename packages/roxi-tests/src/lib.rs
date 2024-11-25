@@ -1,5 +1,6 @@
 pub mod utils {
 
+    use rand::Rng;
     use regex::Regex;
     use roxi_client::{Client, Config as ClientConfig};
     use roxi_lib::constant;
@@ -71,7 +72,7 @@ pub mod utils {
 
 network:
   server:
-    ip: "192.168.1.34"
+    ip: "{ip}"
     interface: "0.0.0.0"
     ports:
       tcp: 8080
@@ -122,6 +123,10 @@ ListenPort = 51820
         let client = expand_tilde(&client).display().to_string();
         let wgconf = expand_tilde(&wgconf).display().to_string();
 
+        let udp_gen = || rand::thread_rng().gen_range(5675..=5685);
+        let udp = udp_gen();
+        let gateway_udp = udp_gen();
+
         (
             client.clone(),
             format!(
@@ -137,7 +142,7 @@ network:
     ip: "127.0.0.1"
     ports:
       tcp: 8080
-      udp: 5675
+      udp: {udp}
     request_timeout: 1
 
   stun:
@@ -146,10 +151,10 @@ network:
 
   gateway:
     interface: "0.0.0.0"
-    ip: "127.0.0.1"
+    ip: "{ip}"
     ports:
       tcp: 8081
-      udp: 5677
+      udp: {gateway_udp}
     max_clients: 10
 
   wireguard:
@@ -199,7 +204,9 @@ auth:
 mod integration_tests {
     use crate::utils::*;
     use async_std::sync::Arc;
+    use roxi_lib::types::Address;
     use roxi_proto::{MessageKind, MessageStatus};
+    use roxi_server::{ServerError, SessionManager};
 
     static INIT: std::sync::Once = std::sync::Once::new();
 
@@ -207,6 +214,46 @@ mod integration_tests {
         INIT.call_once(|| {
             tracing_subscriber::fmt().with_test_writer().init();
         });
+    }
+
+    #[tokio::test]
+    async fn test_server_sessions_manager() {
+        init_logging();
+
+        let srv = setup_server(IP_ONE).await;
+        let sessions = SessionManager::new(srv.config().clone());
+
+        let c1 = setup_peer(IP_TWO).await;
+        let c2 = setup_peer(IP_THREE).await;
+
+        let _ = sessions.authenticate(&c1.client_id(), c1.config()).await;
+        assert_eq!(sessions.len().await, 1);
+        assert!(sessions.exists(&c1.client_id()).await);
+        assert!(!sessions.exists(&c2.client_id()).await);
+
+        let result = sessions.get_peer_for_gateway(&c1.client_id()).await;
+        assert!(matches!(result, Err(ServerError::NoAvailablePeers)));
+
+        let _ = sessions.authenticate(&c2.client_id(), c2.config()).await;
+        assert_eq!(sessions.len().await, 2);
+        assert!(sessions.exists(&c2.client_id()).await);
+
+        let result = sessions
+            .get_peer_for_gateway(&c1.client_id())
+            .await
+            .unwrap();
+        let expected = Address::try_from(&c2.client_id()).unwrap();
+        assert_eq!(expected, result);
+
+        let result = sessions
+            .get_peer_for_gateway(&c2.client_id())
+            .await
+            .unwrap();
+        let expected = Address::try_from(&c1.client_id()).unwrap();
+        assert_eq!(expected, result);
+
+        sessions.remove(&c1.client_id()).await;
+        assert_eq!(sessions.len().await, 1);
     }
 
     #[tokio::test]

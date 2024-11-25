@@ -1839,6 +1839,7 @@ name = "roxi-tests"
 version = "0.0.0"
 dependencies = [
  "async-std",
+ "rand",
  "regex",
  "roxi-client",
  "roxi-lib",
