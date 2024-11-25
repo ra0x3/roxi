@@ -9,7 +9,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpStream, UdpSocket},
     sync::Mutex,
-    time::{sleep, Duration},
+    time::{sleep, timeout, Duration},
 };
 
 const STUN_BINDING_REQUEST_TYPE: u16 = 0x0001;
@@ -234,25 +234,36 @@ impl Client {
         let data = m.serialize()?;
         tracing::info!("Sending {} bytes", data.len());
 
-        self.tcp.write_all(&data).await?;
-        let mut buff = vec![0u8; 1024];
-        let n = self.tcp.read(&mut buff).await?;
-        if n > 0 {
-            let data = buff[..n].to_vec();
-            let msg = Message::deserialize(&data)?;
-            tracing::info!("Received response: {msg:?}");
-            match msg.status() {
-                MessageStatus::r#Ok | MessageStatus::Created => {
-                    tracing::info!("Recevied successful response");
+        match timeout(
+            Duration::from_secs(self.config.request_timeout()),
+            self.tcp.write_all(&data),
+        )
+        .await
+        {
+            Ok(_) => {
+                let mut buff = vec![0u8; 1024];
+                let n = self.tcp.read(&mut buff).await?;
+                if n > 0 {
+                    let data = buff[..n].to_vec();
+                    let msg = Message::deserialize(&data)?;
+                    tracing::info!("Received response: {msg:?}");
+                    match msg.status() {
+                        MessageStatus::r#Ok | MessageStatus::Created => {
+                            tracing::info!("Recevied successful response");
+                        }
+                        _ => {
+                            tracing::warn!("Received non-success response");
+                        }
+                    }
+                    return Ok(Some(msg));
                 }
-                _ => {
-                    tracing::warn!("Received non-success response");
-                }
-            }
-            return Ok(Some(msg));
-        }
 
-        tracing::info!("No data in response");
+                tracing::info!("No data in response");
+            }
+            Err(e) => {
+                tracing::error!("Request timeout: {e}");
+            }
+        }
 
         Ok(None)
     }

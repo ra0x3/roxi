@@ -75,9 +75,14 @@ pub struct Server {
     interface: IpAddr,
     ip: IpAddr,
     ports: Ports,
+    request_timeout: u64,
 }
 
 impl Server {
+    pub fn request_timeout(&self) -> u64 {
+        self.request_timeout
+    }
+
     pub fn addr(&self, k: InterfaceKind) -> String {
         match k {
             InterfaceKind::Tcp => format!("{}:{}", self.interface, self.ports.tcp),
@@ -127,6 +132,10 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn request_timeout(&self) -> u64 {
+        self.network.server.request_timeout()
+    }
+
     pub fn wgquick_config_path(&self) -> Option<&PathBuf> {
         self.network.wgquick_config_path()
     }

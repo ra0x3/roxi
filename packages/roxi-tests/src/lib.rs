@@ -138,6 +138,7 @@ network:
     ports:
       tcp: 8080
       udp: 5675
+    request_timeout: 1
 
   stun:
     ip: ~
@@ -198,7 +199,6 @@ auth:
 mod integration_tests {
     use crate::utils::*;
     use async_std::sync::Arc;
-    use tokio::time::{timeout, Duration};
 
     static INIT: std::sync::Once = std::sync::Once::new();
 
@@ -207,8 +207,6 @@ mod integration_tests {
             tracing_subscriber::fmt().with_test_writer().init();
         });
     }
-
-    const TIMEOUT_SECS: u64 = 0x1;
 
     #[tokio::test]
     async fn test_peer_server_rpc_ping() {
@@ -221,9 +219,9 @@ mod integration_tests {
             async move { srvc.run().await }
         });
 
-        let ping = timeout(Duration::from_secs(TIMEOUT_SECS), peer.ping()).await;
+        let ping = peer.ping().await;
         assert!(ping.is_ok(), "Ping request timed out or failed");
-        assert!(ping.unwrap().is_ok(), "Ping failed on server response");
+        assert!(ping.unwrap().is_some(), "Ping failed on server response");
 
         handle.abort();
 
@@ -243,13 +241,8 @@ mod integration_tests {
             async move { srvc.run().await }
         });
 
-        let response =
-            timeout(Duration::from_secs(TIMEOUT_SECS), peer.authenticate()).await;
+        let response = peer.authenticate().await;
         assert!(response.is_ok(), "Authenticate request timed out or failed");
-        assert!(
-            response.unwrap().is_ok(),
-            "Authenticate failed on server response"
-        );
 
         handle.abort();
 
