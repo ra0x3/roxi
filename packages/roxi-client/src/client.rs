@@ -158,23 +158,25 @@ impl Client {
         }
     }
 
-    pub async fn request_gateway(&mut self) -> ClientResult<Option<Address>> {
-        if let Ok(msg) = self
+    pub async fn request_gateway(&mut self) -> ClientResult<Option<Message>> {
+        match self
             .send(Message::new(
                 MessageKind::GatewayRequest,
                 MessageStatus::Pending,
                 self.config.remote_addr(InterfaceKind::Tcp),
                 None,
             ))
-            .await
+            .await?
         {
-            let data = msg.expect("Empty response").into_inner();
-            let addr = Address::try_from(data)?;
-
-            return Ok(Some(addr));
+            Some(msg) => {
+                tracing::info!("Successfully received gateway info");
+                Ok(Some(msg))
+            }
+            None => {
+                tracing::error!("Failed to receive gateway info");
+                Ok(None)
+            }
         }
-
-        Ok(None)
     }
 
     pub async fn nat_punch(&mut self, addr: Address) -> ClientResult<()> {
@@ -217,7 +219,7 @@ impl Client {
         Ok(())
     }
 
-    pub async fn request_tunnel_info(&mut self) -> ClientResult<()> {
+    async fn request_tunnel_info(&mut self) -> ClientResult<()> {
         let pubkey = command::cat_wireguard_pubkey()?;
         let endpoint = None;
         let allowed_ips = "".to_string();
@@ -258,6 +260,26 @@ impl Client {
             ))
             .await?;
 
+        Ok(())
+    }
+
+    pub async fn tunnel(&mut self) -> ClientResult<()> {
+        self.authenticate().await?;
+        let msg = self.request_gateway().await?;
+        if let Some(msg) = msg {
+            let addr = Address::try_from(msg.data())?;
+            if let Err(e) = timeout(
+                Duration::from_secs(self.config.request_timeout()),
+                self.nat_punch(addr.clone()),
+            )
+            .await
+            {
+                tracing::error!("NAT punch failed: {e}");
+                return Ok(());
+            }
+            self.request_tunnel_info().await?;
+            self.setup_peer_tunnel(addr).await?;
+        }
         Ok(())
     }
 

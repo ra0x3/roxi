@@ -1,13 +1,9 @@
 pub(crate) mod auth;
 pub(crate) mod gateway;
-pub(crate) mod hello;
 pub(crate) mod ping;
-pub(crate) mod punch;
 pub(crate) mod quick;
-pub(crate) mod regateway;
+pub(crate) mod request_gateway;
 pub(crate) mod seed;
 pub(crate) mod serve;
-pub(crate) mod stinfo;
 pub(crate) mod stun;
-pub(crate) mod tinfo;
 pub(crate) mod tunnel;

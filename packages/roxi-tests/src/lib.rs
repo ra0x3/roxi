@@ -203,11 +203,11 @@ auth:
 #[cfg(test)]
 mod integration_tests {
     use crate::utils::*;
-    use std::fs;
     use async_std::sync::Arc;
     use roxi_lib::types::Address;
     use roxi_proto::{MessageKind, MessageStatus};
     use roxi_server::{ServerError, SessionManager};
+    use std::fs;
 
     static INIT: std::sync::Once = std::sync::Once::new();
 
@@ -219,10 +219,16 @@ mod integration_tests {
         if let Some(home_dir) = dirs::home_dir() {
             let config_path = home_dir.join(".config").join("roxi");
             if let Err(e) = fs::create_dir_all(&config_path) {
-                eprintln!("Failed to create config directory at {:?}: {}", config_path, e);
+                tracing::error!(
+                    "Failed to create config directory at {:?}: {}",
+                    config_path,
+                    e
+                );
+            } else {
+                tracing::info!("Config directory created at {:?}", config_path);
             }
         } else {
-            eprintln!("Could not determine the home directory");
+            tracing::error!("Could not determine the home directory");
         }
     }
 
@@ -341,13 +347,13 @@ mod integration_tests {
         let auth = auth.unwrap().unwrap();
         assert_eq!(*auth.status(), MessageStatus::r#Ok);
         assert_eq!(*auth.kind(), MessageKind::AuthenticationResponse);
-        // let seed = peer.seed().await;
-        // assert!(seed.is_ok(), "Seed failed or timed out.");
-        // assert!(seed.as_ref().unwrap().is_some(), "Seed response failed.");
+        let seed = peer.seed().await;
+        assert!(seed.is_ok(), "Seed failed or timed out.");
+        assert!(seed.as_ref().unwrap().is_some(), "Seed response failed.");
 
-        // let seed = seed.unwrap().unwrap();
-        // assert_eq!(*seed.status(), MessageStatus::r#Ok);
-        // assert_eq!(*seed.kind(), MessageKind::SeedResponse);
+        let seed = seed.unwrap().unwrap();
+        assert_eq!(*seed.status(), MessageStatus::r#Ok);
+        assert_eq!(*seed.kind(), MessageKind::SeedResponse);
 
         handle.abort();
 

@@ -20,24 +20,8 @@ pub async fn exec(args: Args) -> anyhow::Result<()> {
 
     let mut client = Client::new(config).await?;
 
-    if let Err(e) = client.ping().await {
-        tracing::error!("Could not ping server: {e}");
-    }
-
-    if let Err(e) = client.authenticate().await {
-        tracing::error!("Could not authenticate: {e}");
-    }
-
-    if let Err(e) = client.request_tunnel_info().await {
-        tracing::error!("Could not request tunnel info: {e}");
-    }
-
-    if let Err(e) = client.request_stun_info().await {
-        tracing::error!("Could not request stun info: {e}");
-    }
-
-    if let Err(e) = client.ping().await {
-        tracing::error!("Could not ping server: {e}");
+    if let Err(e) = client.tunnel().await {
+        tracing::error!("Tunnel error: {e}");
     }
 
     Ok(())

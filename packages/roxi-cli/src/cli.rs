@@ -1,6 +1,5 @@
 pub(crate) use crate::command::{
-    auth, gateway, hello, ping, punch, quick, regateway, seed, serve, stinfo, stun,
-    tinfo, tunnel,
+    auth, gateway, ping, quick, request_gateway, seed, serve, stun, tunnel,
 };
 use clap::{Parser, Subcommand};
 
@@ -14,34 +13,23 @@ pub struct Opt {
 
 #[derive(Subcommand, Debug)]
 pub enum RoxiCli {
-    #[clap(name = "hello", about = "Test hello command")]
-    Hello(hello::Args),
-    #[clap(name = "serve", about = "Start Roxi server")]
+    #[clap(name = "serve", about = "Start a ROXI server.")]
     Serve(serve::Args),
-    #[clap(name = "ping", about = "Ping Roxi server")]
+    #[clap(name = "ping", about = "Ping a ROXI server.")]
     Ping(ping::Args),
-    #[clap(name = "auth", about = "Authenticate against Roxi server")]
+    #[clap(name = "auth", about = "Authenticate against ROXI server.")]
     Auth(auth::Args),
-    #[clap(name = "stun", about = "Send public IP to STUN server")]
+    #[clap(name = "stun", about = "Send public IP to STUN server.")]
     Stun(stun::Args),
-    #[clap(name = "gateway", about = "Start Roxi gateway server")]
+    #[clap(name = "gateway", about = "Start ROXI gateway server.")]
     Gateway(gateway::Args),
-    #[clap(name = "quick", about = "Run wg-quick")]
+    #[clap(name = "quick", about = "Run wg-quick.")]
     Quick(quick::Args),
-    #[clap(name = "seed", about = "Seed client")]
+    #[clap(name = "seed", about = "Seed a client against the server.")]
     Seed(seed::Args),
-    #[clap(name = "punch", about = "Nat punch")]
-    Punch(punch::Args),
-    #[clap(name = "stinfo", about = "Request stun info")]
-    StInfo(stinfo::Args),
-    #[clap(name = "tinfo", about = "Request tunnel info")]
-    TInfo(tinfo::Args),
-    #[clap(name = "regateway", about = "Request gateway")]
-    ReGateway(regateway::Args),
-    #[clap(
-        name = "tunnel",
-        about = "Create tunnel (combines ping, auth, stinfo, tinfo, punch)"
-    )]
+    #[clap(name = "request_gateway", about = "Request a gateway from the server.")]
+    RequestGateway(request_gateway::Args),
+    #[clap(name = "tunnel", about = "Create tunnel a tunnel between two peers")]
     Tunnel(tunnel::Args),
 }
 
@@ -49,7 +37,6 @@ pub async fn run_cli() -> Result<(), anyhow::Error> {
     let opt = Opt::parse();
 
     match opt.command {
-        RoxiCli::Hello(command) => hello::exec(command),
         RoxiCli::Serve(command) => serve::exec(command).await,
         RoxiCli::Ping(command) => ping::exec(command).await,
         RoxiCli::Auth(command) => auth::exec(command).await,
@@ -57,10 +44,7 @@ pub async fn run_cli() -> Result<(), anyhow::Error> {
         RoxiCli::Gateway(command) => gateway::exec(command).await,
         RoxiCli::Quick(command) => quick::exec(command).await,
         RoxiCli::Seed(command) => seed::exec(command).await,
-        RoxiCli::Punch(command) => punch::exec(command).await,
-        RoxiCli::StInfo(command) => stinfo::exec(command).await,
-        RoxiCli::TInfo(command) => tinfo::exec(command).await,
-        RoxiCli::ReGateway(command) => regateway::exec(command).await,
+        RoxiCli::RequestGateway(command) => request_gateway::exec(command).await,
         RoxiCli::Tunnel(command) => tunnel::exec(command).await,
     }
 }

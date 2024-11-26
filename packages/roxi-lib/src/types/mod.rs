@@ -43,6 +43,15 @@ impl Address {
     }
 }
 
+impl TryFrom<Vec<u8>> for Address {
+    type Error = anyhow::Error;
+    fn try_from(d: Vec<u8>) -> Result<Self, Self::Error> {
+        let ip = Ipv4Addr::new(d[0], d[1], d[2], d[3]);
+        let port = u16::from_be_bytes([d[4], d[5]]);
+        Ok(Self { ip, port })
+    }
+}
+
 impl TryFrom<String> for Address {
     type Error = anyhow::Error;
     fn try_from(s: String) -> Result<Self, Self::Error> {

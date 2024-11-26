@@ -114,15 +114,11 @@ sudo -E sh scripts/wg.sh
 | **Command**              | **Description**             | **Example**                     | **Implemented** |
 |--------------------------|-----------------------------|---------------------------------|-----------------|
 | Start development server | Run the development server  | `roxi serve -c server.yaml`     | ✔️               |
-| Ping                     | Send a ping request         | `roxi ping -c client.yaml`| ✔️               |
-| Authenticate             | Authenticate the client     | `roxi auth -c client.yaml`| ✔️               |
-| Seed Stun Info           | Seed STUN information       | `roxi stun -c client.yaml`| ✔️               |
-| Seed Connection          | Initialize seed connection  | `roxi seed -c client.yaml`| ✔️               |
-| Test Hello Command       | Test hello command          | `roxi hello`                    | ✔️               |
-| Connect                  | Connect to Roxi server      | `roxi connect -c client.yaml`|              |
-| Start Gateway Server     | Start client gateway server | `roxi gateway -c client.yaml`|              |
-| Tunnel Info              | Request tunnel info         | `roxi tinfo -c client.yaml`|              |
-| STUN Info                | Request stun info           | `roxi stinfo -c client.yaml`|              |
-| Request Gateway          | Request a gateway           | `roxi regateway -c client.yaml`|           |
+| Ping                     | Send a ping request         | `roxi ping -c client.yaml`| ✔️    |
+| Authenticate             | Authenticate the client     | `roxi auth -c client.yaml`| ✔️    |
+| Seed Stun Info           | Seed STUN information       | `roxi stun -c client.yaml`| ✔️    |
+| Seed Connection          | Initialize seed connection  | `roxi seed -c client.yaml`| ✔️    |
+| Test Hello Command       | Test hello command          | `roxi hello`              | ✔️    |
+| Start Gateway Server     | Start client gateway server | `roxi gateway -c client.yaml`|       ✔️  |
 | Create tunnel          | Create a tunnel through a gateway | `roxi tunnel -c client.yaml`|           |
 

@@ -15,4 +15,5 @@ roxi-client = { path = "../roxi-client" }
 roxi-proto = { path = "../roxi-proto" }
 roxi-server = { path = "../roxi-server" }
 tokio = { workspace = true }
-tracing-subscriber = "0.3.18"
+tracing = { workspace = true }
+tracing-subscriber =  { workspace = true }
