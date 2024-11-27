@@ -11,6 +11,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream, UdpSocket},
     sync::{Mutex, RwLock, Semaphore},
+    time::{timeout, Duration},
 };
 
 const STUN_BINDING_REQUEST: u16 = 0x0001;
@@ -285,6 +286,11 @@ impl Server {
         Ok(())
     }
 
+    /// Runs the STUN server, processing incoming UDP packets asynchronously.
+    ///
+    /// This method listens on the UDP socket specified in the server's configuration.
+    /// For each incoming packet, it spawns a new task to process the packet using
+    /// `handle_stun`. The server instance is shared across tasks using `Arc<Self>`.
     pub async fn run_stun(self: Arc<Self>) -> ServerResult<()> {
         tracing::info!(
             "UDP server listening at {}",
@@ -304,6 +310,14 @@ impl Server {
         }
     }
 
+    /// Runs the TCP server, accepting and handling client connections asynchronously.
+    ///
+    /// This method listens on the TCP socket specified in the server's configuration.
+    /// For each incoming connection, it spawns a new task to process the connection
+    /// using `handle_conn`. The server instance is shared across tasks using `Arc<Self>`.
+    ///
+    /// Additionally, this method spawns a background task to monitor client sessions
+    /// using `client_sessions.monitor`.
     pub async fn run(self: Arc<Self>) -> ServerResult<()> {
         tracing::info!(
             "Roxi server listening at {}",
@@ -332,39 +346,58 @@ impl Server {
     }
 
     pub async fn stop(self: Arc<Self>) -> ServerResult<()> {
+        if let Err(e) = self.stop_with_timeout(Duration::from_secs(1)).await {
+            tracing::error!("Error stopping server: {e}");
+        }
+        Ok(())
+    }
+
+    async fn stop_with_timeout(self: Arc<Self>, duration: Duration) -> ServerResult<()> {
+        if let Err(e) = timeout(duration, self.stop_inner()).await? {
+            tracing::error!("Server shutdown timed out: {e}");
+        }
+        Ok(())
+    }
+
+    async fn stop_inner(&self) -> ServerResult<()> {
         tracing::info!("Initiating graceful server shutdown");
 
         {
             let mut clients = self.client_streams.write().await;
-            for (client_id, _stream) in clients.iter() {
+            for (client_id, stream) in clients.iter() {
                 tracing::info!("Closing connection for client: {:?}", client_id);
-                // let mut _guard = stream.lock().await;
 
-                // FIXME: There's lock contention here.
-                // if let Err(e) = timeout(
-                //     Duration::from_secs(self.config.response_timeout()),
-                //     self.send(
-                //         client_id,
-                //         Message::new(
-                //             MessageKind::ServerShutdown,
-                //             MessageStatus::ServiceUnavailable,
-                //             self.config.remote_addr(InterfaceKind::Tcp),
-                //             None,
-                //         ),
-                //         stream.clone(),
-                //     ),
-                // )
-                // .await
-                // {
-                //     tracing::error!("Message timed out: {e}");
-                // }
-                // let _ = AsyncWriteExt::shutdown(&mut *guard).await;
+                // FIXME: Trying to acquire a lock on the stream here causes lock contention due to
+                // `Server::handle_conn` accessing the lock infinitum, which (for now) allows clients
+                // to send multiple messages on a single stream. Might require a bit of rework later. <( '.' )>
+                let mut guard = stream.lock().await;
+
+                if let Err(e) = timeout(
+                    Duration::from_secs(self.config.response_timeout()),
+                    self.send(
+                        client_id,
+                        Message::new(
+                            MessageKind::ServerShutdown,
+                            MessageStatus::ServiceUnavailable,
+                            self.config.remote_addr(InterfaceKind::Tcp),
+                            None,
+                        ),
+                        stream.clone(),
+                    ),
+                )
+                .await
+                {
+                    tracing::error!(
+                        "{client_id:?} MessageKind::ServerShutdown timed out: {e}"
+                    );
+                }
+
+                let _ = AsyncWriteExt::shutdown(&mut *guard).await;
             }
             clients.clear();
         }
 
         self.client_sessions.clear().await?;
-
         self.client_stun.write().await.clear();
 
         drop(self.client_limit.clone());

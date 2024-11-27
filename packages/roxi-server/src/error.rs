@@ -52,4 +52,7 @@ pub enum ServerError {
 
     #[error("No available peers")]
     NoAvailablePeers,
+
+    #[error("Elapsed error: {0}")]
+    Elapsed(#[from] tokio::time::error::Elapsed),
 }

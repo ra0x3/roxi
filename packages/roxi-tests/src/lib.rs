@@ -335,12 +335,10 @@ mod integration_tests {
             async move { srvc.run().await }
         });
 
-        // First request is unauthenticated.
         let seed = peer.seed().await;
         assert!(seed.is_ok(), "Seed failed or timed out.");
         assert!(seed.as_ref().unwrap().is_some(), "Seed response failed.");
 
-        // Now we authenticate first.
         let auth = peer.authenticate().await;
         assert!(auth.is_ok(), "Auth failed or timed out.");
         assert!(auth.as_ref().unwrap().is_some(), "Auth response failed.");
