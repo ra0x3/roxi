@@ -1,6 +1,4 @@
-pub(crate) use crate::command::{
-    auth, gateway, ping, quick, request_gateway, seed, serve, stun, tunnel,
-};
+pub(crate) use crate::command::{auth, gateway, ping, quick, seed, serve, stun, tunnel};
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -27,9 +25,7 @@ pub enum RoxiCli {
     Quick(quick::Args),
     #[clap(name = "seed", about = "Seed a client against the server.")]
     Seed(seed::Args),
-    #[clap(name = "request_gateway", about = "Request a gateway from the server.")]
-    RequestGateway(request_gateway::Args),
-    #[clap(name = "tunnel", about = "Create tunnel a tunnel between two peers")]
+    #[clap(name = "tunnel", about = "Create tunnel a tunnel between two peers.")]
     Tunnel(tunnel::Args),
 }
 
@@ -44,7 +40,6 @@ pub async fn run_cli() -> Result<(), anyhow::Error> {
         RoxiCli::Gateway(command) => gateway::exec(command).await,
         RoxiCli::Quick(command) => quick::exec(command).await,
         RoxiCli::Seed(command) => seed::exec(command).await,
-        RoxiCli::RequestGateway(command) => request_gateway::exec(command).await,
         RoxiCli::Tunnel(command) => tunnel::exec(command).await,
     }
 }

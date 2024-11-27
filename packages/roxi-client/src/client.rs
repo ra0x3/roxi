@@ -2,7 +2,8 @@ use crate::{config::Config, ClientResult};
 use bytes::BytesMut;
 use roxi_lib::types::{Address, ClientId, InterfaceKind};
 use roxi_proto::{
-    command, Message, MessageKind, MessageStatus, WireGuardConfig, WireGuardPeer,
+    command, Message, MessageKind, MessageStatus, WireGuardProtoConfig,
+    WireGuardProtoPeer,
 };
 use std::sync::Arc;
 use tokio::{
@@ -17,7 +18,7 @@ const STUN_MAGIC_COOKIE: u32 = 0x2112A442;
 
 pub struct Client {
     config: Config,
-    wireguard_config: Arc<Mutex<WireGuardConfig>>,
+    wireguard_config: Arc<Mutex<WireGuardProtoConfig>>,
     tcp: TcpStream,
     udp: UdpSocket,
     peer_stream: Option<(ClientId, Address, Arc<Mutex<TcpStream>>)>,
@@ -33,7 +34,7 @@ impl Client {
     }
 
     pub async fn new(config: Config) -> ClientResult<Self> {
-        let wireguard_config = WireGuardConfig::try_from(config.wireguard())?;
+        let wireguard_config = WireGuardProtoConfig::try_from(config.wireguard())?;
 
         Ok(Self {
             config: config.clone(),
@@ -97,18 +98,19 @@ impl Client {
         request.extend_from_slice(&u16::to_be_bytes(0)); // Length
         request.extend_from_slice(&u32::to_be_bytes(STUN_MAGIC_COOKIE));
 
-        // Add transaction ID
         for _ in 0..12 {
             request.extend_from_slice(&[rand::random::<u8>()]);
         }
 
         tracing::info!("Sending info to STUN server");
-        if (self
-            .udp
-            .send_to(&request, self.config.remote_addr(InterfaceKind::Udp))
-            .await)
-            .is_ok()
-        {
+        let send_result = timeout(
+            Duration::from_secs(1),
+            self.udp
+                .send_to(&request, self.config.remote_addr(InterfaceKind::Udp)),
+        )
+        .await;
+
+        if let Ok(Ok(_)) = send_result {
             tracing::info!("Successfully sent info to STUN server");
         }
 
@@ -219,20 +221,20 @@ impl Client {
         Ok(())
     }
 
-    async fn request_tunnel_info(&mut self) -> ClientResult<()> {
+    async fn request_tunnel_info(&mut self) -> ClientResult<Option<Message>> {
         let pubkey = command::cat_wireguard_pubkey()?;
         let endpoint = None;
         let allowed_ips = "".to_string();
         let persistent_keepalive = 1;
 
-        let data = bincode::serialize(&WireGuardPeer {
+        let data = bincode::serialize(&WireGuardProtoPeer {
             public_key: pubkey.to_owned(),
             allowed_ips,
             endpoint,
             persistent_keepalive: Some(persistent_keepalive),
         })?;
 
-        if let Some(msg) = self
+        match self
             .send(Message::new(
                 MessageKind::PeerTunnelInitRequest,
                 MessageStatus::Pending,
@@ -241,13 +243,20 @@ impl Client {
             ))
             .await?
         {
-            let peer: WireGuardPeer = bincode::deserialize(&msg.data())?;
-            self.wireguard_config.lock().await.add_peer(peer);
+            Some(msg) => {
+                tracing::info!("Received tunnel info: {msg:?}");
+                let peer: WireGuardProtoPeer = bincode::deserialize(&msg.data())?;
+                self.wireguard_config.lock().await.add_peer(peer);
 
-            //            self.wireguard_config.save();
+                //            self.wireguard_config.save();
+
+                Ok(Some(msg))
+            }
+            None => {
+                tracing::error!("Failed to receive tunnel info");
+                Ok(None)
+            }
         }
-
-        Ok(())
     }
 
     pub async fn setup_peer_tunnel(&mut self, addr: Address) -> ClientResult<()> {
@@ -323,19 +332,33 @@ impl Client {
     }
 
     pub async fn stop(&mut self) -> ClientResult<()> {
-        tracing::info!("Stopping client");
-        // if let Some((client_id, addr, stream)) = self.peer_stream.take() {
-        //     let _msg = self
-        //         .send(Message::new(
-        //             MessageKind::PeerTunnelClose,
-        //             MessageStatus::Pending,
-        //             addr,
-        //             Some(Vec::<u8>::from(client_id)),
-        //         ))
-        //         .await?;
+        if let Err(e) = self.stop_with_timeout(Duration::from_secs(1)).await {
+            tracing::error!("Error stopping server: {e}");
+        }
+        Ok(())
+    }
 
-        //     stream.lock().await.shutdown().await?;
-        // }
+    async fn stop_with_timeout(&mut self, duration: Duration) -> ClientResult<()> {
+        if let Err(e) = timeout(duration, self.stop_inner()).await? {
+            tracing::error!("Server shutdown timed out: {e}");
+        }
+        Ok(())
+    }
+
+    pub async fn stop_inner(&mut self) -> ClientResult<()> {
+        tracing::info!("Stopping client");
+        if let Some((client_id, addr, stream)) = self.peer_stream.take() {
+            let _msg = self
+                .send(Message::new(
+                    MessageKind::PeerTunnelClose,
+                    MessageStatus::Pending,
+                    addr.to_string(),
+                    Some(client_id.to_vec()),
+                ))
+                .await?;
+
+            stream.lock().await.shutdown().await?;
+        }
 
         Ok(())
     }

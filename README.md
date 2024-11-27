@@ -116,6 +116,7 @@ sudo -E sh scripts/wg.sh
 | Start development server | Run the development server  | `roxi serve -c server.yaml`     | ✔️               |
 | Ping                     | Send a ping request         | `roxi ping -c client.yaml`| ✔️    |
 | Authenticate             | Authenticate the client     | `roxi auth -c client.yaml`| ✔️    |
+| Quick           | Run `wg-quick` commands       | `roxi quick -c client.yaml`| ✔️    |
 | Seed Stun Info           | Seed STUN information       | `roxi stun -c client.yaml`| ✔️    |
 | Seed Connection          | Initialize seed connection  | `roxi seed -c client.yaml`| ✔️    |
 | Test Hello Command       | Test hello command          | `roxi hello`              | ✔️    |

@@ -12,6 +12,7 @@ network:
       tcp: 8080
       udp: 5675
     request_timeout: 1
+    response_timeout: 1
 
   stun:
     ip: ~
@@ -26,21 +27,8 @@ network:
     max_clients: 10
 
   wireguard:
-    type: "wgquick" # wg-quick/boringtun
-    wgquick:
-      config: "/Users/rashad/dev/repos/roxi/wg0.conf.example"
-    boringtun:
-      private_key: "<ServerPrivateKey>"
-      public_key: "<ServerPublicKey>"
-      address: "10.0.0.1"
-      network_size: "24"
-      port: 51820
-      dns: "1.1.1.1"
-      peers:
-        - public_key: "<ServerPublicKey>"
-          allowed_ips: "10.0.0.2/32"
-          endpoint: "<ClientIPAddress>:51820"
-          persistent_keep_alive: 25
+    config: "/Users/rashad/dev/repos/roxi/wg0.conf.example"
+
 
 auth:
   shared_key: "roxi-XXX"

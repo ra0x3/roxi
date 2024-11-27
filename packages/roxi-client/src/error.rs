@@ -28,4 +28,7 @@ pub enum ClientError {
 
     #[error("Bincode error: {0}")]
     Bincode(#[from] bincode::Error),
+
+    #[error("Elapsed error: {0}")]
+    Elapsed(#[from] tokio::time::error::Elapsed),
 }

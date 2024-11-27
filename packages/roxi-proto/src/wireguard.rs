@@ -1,5 +1,5 @@
 use crate::{command, ProtoError, ProtoResult};
-use roxi_lib::types::config::{self, Boringtun, ToolType, WgQuick};
+use roxi_lib::types::config::{self};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     fmt,
@@ -10,29 +10,29 @@ use std::{
 };
 
 #[derive(Clone, Serialize, Deserialize, Debug, Hash, Default)]
-pub enum WireGuardKeyKind {
+pub enum WireGuardProtoKeyKind {
     Private,
     #[default]
     Public,
 }
 
 #[derive(Clone, Debug, Hash, Deserialize)]
-pub struct WireGuardKey {
+pub struct WireGuardProtoKey {
     key: String,
-    kind: WireGuardKeyKind,
+    kind: WireGuardProtoKeyKind,
 }
 
-impl WireGuardKey {
+impl WireGuardProtoKey {
     pub fn from_public(key: String) -> Self {
         Self {
-            kind: WireGuardKeyKind::Public,
+            kind: WireGuardProtoKeyKind::Public,
             key,
         }
     }
 
     pub fn from_private(key: String) -> Self {
         Self {
-            kind: WireGuardKeyKind::Private,
+            kind: WireGuardProtoKeyKind::Private,
             key,
         }
     }
@@ -42,13 +42,13 @@ impl WireGuardKey {
     }
 }
 
-impl fmt::Display for WireGuardKey {
+impl fmt::Display for WireGuardProtoKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.key)
     }
 }
 
-impl TryFrom<&PathBuf> for WireGuardKey {
+impl TryFrom<&PathBuf> for WireGuardProtoKey {
     type Error = ProtoError;
     fn try_from(p: &PathBuf) -> ProtoResult<Self> {
         let k = command::cat_wireguard_key(p)?;
@@ -56,7 +56,7 @@ impl TryFrom<&PathBuf> for WireGuardKey {
     }
 }
 
-impl Serialize for WireGuardKey {
+impl Serialize for WireGuardProtoKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -65,28 +65,28 @@ impl Serialize for WireGuardKey {
     }
 }
 
-pub struct WireGuardKeyPair {
+pub struct WireGuardProtoKeyPair {
     #[allow(unused)]
-    pub pubkey: WireGuardKey,
-    pub privkey: WireGuardKey,
+    pub pubkey: WireGuardProtoKey,
+    pub privkey: WireGuardProtoKey,
 }
 
 #[derive(Debug)]
-pub struct WireGuardInterface {
-    pub private_key: WireGuardKey,
+pub struct WireGuardProtoInterface {
+    pub private_key: WireGuardProtoKey,
     pub address: String,
     pub port: u16,
     pub dns: Option<IpAddr>,
 }
 
-impl Serialize for WireGuardInterface {
+impl Serialize for WireGuardProtoInterface {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         use serde::ser::SerializeStruct;
 
-        let mut state = serializer.serialize_struct("WireGuardInterface", 4)?;
+        let mut state = serializer.serialize_struct("WireGuardProtoInterface", 4)?;
         state.serialize_field("PrivateKey", &self.private_key)?;
         state.serialize_field("Address", &self.address)?;
         state.serialize_field("ListenPort", &self.port)?;
@@ -97,7 +97,7 @@ impl Serialize for WireGuardInterface {
     }
 }
 
-impl<'de> Deserialize<'de> for WireGuardInterface {
+impl<'de> Deserialize<'de> for WireGuardProtoInterface {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -105,16 +105,16 @@ impl<'de> Deserialize<'de> for WireGuardInterface {
         use serde::de::{MapAccess, Visitor};
         use std::fmt;
 
-        struct WireGuardInterfaceVisitor;
+        struct WireGuardProtoInterfaceVisitor;
 
-        impl<'de> Visitor<'de> for WireGuardInterfaceVisitor {
-            type Value = WireGuardInterface;
+        impl<'de> Visitor<'de> for WireGuardProtoInterfaceVisitor {
+            type Value = WireGuardProtoInterface;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct WireGuardInterface")
+                formatter.write_str("struct WireGuardProtoInterface")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<WireGuardInterface, V::Error>
+            fn visit_map<V>(self, mut map: V) -> Result<WireGuardProtoInterface, V::Error>
             where
                 V: MapAccess<'de>,
             {
@@ -127,7 +127,7 @@ impl<'de> Deserialize<'de> for WireGuardInterface {
                     match key.as_str() {
                         "PrivateKey" => {
                             private_key =
-                                Some(WireGuardKey::from_private(map.next_value()?));
+                                Some(WireGuardProtoKey::from_private(map.next_value()?));
                         }
                         "Address" => {
                             address = Some(map.next_value()?);
@@ -148,7 +148,7 @@ impl<'de> Deserialize<'de> for WireGuardInterface {
                 let address = address.unwrap();
                 let port = port.unwrap();
 
-                Ok(WireGuardInterface {
+                Ok(WireGuardProtoInterface {
                     private_key,
                     address,
                     port,
@@ -158,29 +158,29 @@ impl<'de> Deserialize<'de> for WireGuardInterface {
         }
 
         deserializer.deserialize_struct(
-            "WireGuardInterface",
+            "WireGuardProtoInterface",
             &["PrivateKey", "Address", "ListenPort", "Dns"],
-            WireGuardInterfaceVisitor,
+            WireGuardProtoInterfaceVisitor,
         )
     }
 }
 
 #[derive(Debug, Hash, Clone)]
-pub struct WireGuardPeer {
-    pub public_key: WireGuardKey,
+pub struct WireGuardProtoPeer {
+    pub public_key: WireGuardProtoKey,
     pub allowed_ips: String,
     pub endpoint: Option<String>,
     pub persistent_keepalive: Option<u16>,
 }
 
-impl Serialize for WireGuardPeer {
+impl Serialize for WireGuardProtoPeer {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         use serde::ser::SerializeStruct;
 
-        let mut state = serializer.serialize_struct("WireGuardPeer", 4)?;
+        let mut state = serializer.serialize_struct("WireGuardProtoPeer", 4)?;
         state.serialize_field("PublicKey", &self.public_key)?;
         state.serialize_field("AllowedIPs", &self.allowed_ips)?;
         if let Some(endpoint) = &self.endpoint {
@@ -193,21 +193,21 @@ impl Serialize for WireGuardPeer {
     }
 }
 
-impl<'de> Deserialize<'de> for WireGuardPeer {
+impl<'de> Deserialize<'de> for WireGuardProtoPeer {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct WireGuardPeerVisitor;
+        struct WireGuardProtoPeerVisitor;
 
-        impl<'de> de::Visitor<'de> for WireGuardPeerVisitor {
-            type Value = WireGuardPeer;
+        impl<'de> de::Visitor<'de> for WireGuardProtoPeerVisitor {
+            type Value = WireGuardProtoPeer;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct WireGuardPeer")
+                formatter.write_str("struct WireGuardProtoPeer")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<WireGuardPeer, V::Error>
+            fn visit_map<V>(self, mut map: V) -> Result<WireGuardProtoPeer, V::Error>
             where
                 V: de::MapAccess<'de>,
             {
@@ -220,7 +220,7 @@ impl<'de> Deserialize<'de> for WireGuardPeer {
                     match key.as_str() {
                         "PublicKey" => {
                             public_key =
-                                Some(WireGuardKey::from_public(map.next_value()?));
+                                Some(WireGuardProtoKey::from_public(map.next_value()?));
                         }
                         "AllowedIPs" => {
                             allowed_ips = Some(map.next_value()?);
@@ -240,7 +240,7 @@ impl<'de> Deserialize<'de> for WireGuardPeer {
                 let public_key = public_key.unwrap();
                 let allowed_ips = allowed_ips.unwrap();
 
-                Ok(WireGuardPeer {
+                Ok(WireGuardProtoPeer {
                     public_key,
                     allowed_ips,
                     endpoint,
@@ -250,16 +250,16 @@ impl<'de> Deserialize<'de> for WireGuardPeer {
         }
 
         deserializer.deserialize_struct(
-            "WireGuardPeer",
+            "WireGuardProtoPeer",
             &["PublicKey", "AllowedIPs", "Endpoint", "PersistentKeepalive"],
-            WireGuardPeerVisitor,
+            WireGuardProtoPeerVisitor,
         )
     }
 }
 
-impl From<config::WireGuardPeer> for WireGuardPeer {
-    fn from(p: config::WireGuardPeer) -> Self {
-        let config::WireGuardPeer {
+impl From<config::WireGuardConfPeer> for WireGuardProtoPeer {
+    fn from(p: config::WireGuardConfPeer) -> Self {
+        let config::WireGuardConfPeer {
             public_key,
             allowed_ips,
             endpoint,
@@ -267,7 +267,7 @@ impl From<config::WireGuardPeer> for WireGuardPeer {
             ..
         } = p;
         Self {
-            public_key: WireGuardKey::from_public(public_key),
+            public_key: WireGuardProtoKey::from_public(public_key),
             allowed_ips,
             endpoint,
             persistent_keepalive,
@@ -275,9 +275,9 @@ impl From<config::WireGuardPeer> for WireGuardPeer {
     }
 }
 
-impl From<&WireGuardPeer> for config::WireGuardPeer {
-    fn from(p: &WireGuardPeer) -> Self {
-        let WireGuardPeer {
+impl From<&WireGuardProtoPeer> for config::WireGuardConfPeer {
+    fn from(p: &WireGuardProtoPeer) -> Self {
+        let WireGuardProtoPeer {
             public_key,
             allowed_ips,
             endpoint,
@@ -293,15 +293,15 @@ impl From<&WireGuardPeer> for config::WireGuardPeer {
 }
 
 #[derive(Debug, Serialize)]
-pub struct WireGuardConfig {
+pub struct WireGuardProtoConfig {
     #[serde(rename = "Interface")]
-    pub interface: WireGuardInterface,
+    pub interface: WireGuardProtoInterface,
     #[serde(rename = "Peer", default)]
-    pub peers: Option<Vec<WireGuardPeer>>,
+    pub peers: Option<Vec<WireGuardProtoPeer>>,
 }
 
-impl WireGuardConfig {
-    pub fn add_peer(&mut self, p: WireGuardPeer) {
+impl WireGuardProtoConfig {
+    pub fn add_peer(&mut self, p: WireGuardProtoPeer) {
         match self.peers {
             Some(ref mut peers) => {
                 peers.push(p);
@@ -320,96 +320,56 @@ impl WireGuardConfig {
     }
 }
 
-impl TryFrom<&str> for WireGuardConfig {
+impl TryFrom<&str> for WireGuardProtoConfig {
     type Error = toml::de::Error;
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let c: WireGuardConfig = toml::from_str(s)?;
+        let c: WireGuardProtoConfig = toml::from_str(s)?;
         Ok(c)
     }
 }
 
-impl TryFrom<&PathBuf> for WireGuardConfig {
+impl TryFrom<&PathBuf> for WireGuardProtoConfig {
     type Error = ProtoError;
     fn try_from(p: &PathBuf) -> ProtoResult<Self> {
         let content = fs::read_to_string(p)?;
-        let config: WireGuardConfig = toml::from_str(&content)?;
+        let config: WireGuardProtoConfig = toml::from_str(&content)?;
         Ok(config)
     }
 }
 
-impl TryFrom<&Path> for WireGuardConfig {
+impl TryFrom<&Path> for WireGuardProtoConfig {
     type Error = ProtoError;
     fn try_from(p: &Path) -> ProtoResult<Self> {
         let content = fs::read_to_string(p)?;
-        let config: WireGuardConfig = toml::from_str(&content)?;
+        let config: WireGuardProtoConfig = toml::from_str(&content)?;
         Ok(config)
     }
 }
 
-impl TryFrom<config::WireGuard> for WireGuardConfig {
+impl TryFrom<config::WireGuardConf> for WireGuardProtoConfig {
     type Error = ProtoError;
-    fn try_from(w: config::WireGuard) -> Result<Self, Self::Error> {
-        let config::WireGuard {
-            r#type,
-            boringtun,
-            wgquick,
-        } = w;
-        match r#type {
-            ToolType::WgQuick => {
-                if let Some(WgQuick { config }) = wgquick {
-                    let config = WireGuardConfig::try_from(&config)?;
-                    Ok(config)
-                } else {
-                    Err(ProtoError::MalformedConfig)
-                }
-            }
-            ToolType::Boringtun => {
-                if let Some(Boringtun {
-                    private_key,
-                    dns,
-                    address,
-                    port,
-                    peers,
-                    ..
-                }) = boringtun
-                {
-                    Ok(Self {
-                        interface: WireGuardInterface {
-                            private_key: WireGuardKey::from_private(private_key),
-                            dns,
-                            address,
-                            port,
-                        },
-                        peers: Some(
-                            peers
-                                .iter()
-                                .map(|p| WireGuardPeer::from(p.to_owned()))
-                                .collect::<Vec<WireGuardPeer>>(),
-                        ),
-                    })
-                } else {
-                    Err(ProtoError::MalformedConfig)
-                }
-            }
-        }
+    fn try_from(w: config::WireGuardConf) -> Result<Self, Self::Error> {
+        let config::WireGuardConf { config } = w;
+        let config = WireGuardProtoConfig::try_from(&config)?;
+        Ok(config)
     }
 }
 
-impl<'de> Deserialize<'de> for WireGuardConfig {
+impl<'de> Deserialize<'de> for WireGuardProtoConfig {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct WireGuardConfigVisitor;
+        struct WireGuardProtoConfigVisitor;
 
-        impl<'de> de::Visitor<'de> for WireGuardConfigVisitor {
-            type Value = WireGuardConfig;
+        impl<'de> de::Visitor<'de> for WireGuardProtoConfigVisitor {
+            type Value = WireGuardProtoConfig;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct WireGuardConfig")
+                formatter.write_str("struct WireGuardProtoConfig")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<WireGuardConfig, V::Error>
+            fn visit_map<V>(self, mut map: V) -> Result<WireGuardProtoConfig, V::Error>
             where
                 V: de::MapAccess<'de>,
             {
@@ -430,7 +390,7 @@ impl<'de> Deserialize<'de> for WireGuardConfig {
                     }
                 }
 
-                Ok(WireGuardConfig {
+                Ok(WireGuardProtoConfig {
                     interface: interface
                         .ok_or_else(|| de::Error::missing_field("Interface"))?,
                     peers,
@@ -439,36 +399,36 @@ impl<'de> Deserialize<'de> for WireGuardConfig {
         }
 
         deserializer.deserialize_struct(
-            "WireGuardConfig",
+            "WireGuardProtoConfig",
             &["Interface", "Peer"],
-            WireGuardConfigVisitor,
+            WireGuardProtoConfigVisitor,
         )
     }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub struct WireGuardConfigBuilder {
-    private_key: Option<WireGuardKey>,
-    public_key: Option<WireGuardKey>,
+pub struct WireGuardProtoConfigBuilder {
+    private_key: Option<WireGuardProtoKey>,
+    public_key: Option<WireGuardProtoKey>,
     address: Option<String>,
     port: Option<u16>,
     dns: Option<IpAddr>,
-    peers: Option<Vec<WireGuardPeer>>,
+    peers: Option<Vec<WireGuardProtoPeer>>,
 }
 
-impl WireGuardConfigBuilder {
+impl WireGuardProtoConfigBuilder {
     pub fn builder() -> Self {
         Self::default()
     }
 
     pub fn private_key(mut self, k: String) -> Self {
-        let key = WireGuardKey::from_private(k);
+        let key = WireGuardProtoKey::from_private(k);
         self.private_key = Some(key);
         self
     }
 
     pub fn public_key(mut self, k: String) -> Self {
-        let key = WireGuardKey::from_public(k);
+        let key = WireGuardProtoKey::from_public(k);
         self.public_key = Some(key);
         self
     }
@@ -488,7 +448,7 @@ impl WireGuardConfigBuilder {
         self
     }
 
-    pub fn peer(mut self, peer: WireGuardPeer) -> Self {
+    pub fn peer(mut self, peer: WireGuardProtoPeer) -> Self {
         match self.peers {
             Some(ref mut p) => {
                 p.push(peer);
@@ -500,14 +460,14 @@ impl WireGuardConfigBuilder {
         self
     }
 
-    pub fn peers(mut self, peers: Vec<WireGuardPeer>) -> Self {
+    pub fn peers(mut self, peers: Vec<WireGuardProtoPeer>) -> Self {
         self.peers = Some(peers);
         self
     }
 
-    pub fn build(self) -> WireGuardConfig {
-        WireGuardConfig {
-            interface: WireGuardInterface {
+    pub fn build(self) -> WireGuardProtoConfig {
+        WireGuardProtoConfig {
+            interface: WireGuardProtoInterface {
                 private_key: self.private_key.expect("Private key expected"),
                 address: self.address.expect("Address expected"),
                 port: self.port.expect("Port expected"),
@@ -546,9 +506,9 @@ SaveConfig = true
 # PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 "#;
 
-        let mut config = WireGuardConfig::try_from(content).unwrap();
-        config.add_peer(WireGuardPeer {
-            public_key: WireGuardKey::from_public("123".to_string()),
+        let mut config = WireGuardProtoConfig::try_from(content).unwrap();
+        config.add_peer(WireGuardProtoPeer {
+            public_key: WireGuardProtoKey::from_public("123".to_string()),
             allowed_ips: "".to_string(),
             endpoint: None,
             persistent_keepalive: None,
@@ -558,21 +518,21 @@ SaveConfig = true
         let _ = config.save(name);
 
         let path = PathBuf::from(name);
-        let updated_config = WireGuardConfig::try_from(&path).unwrap();
+        let updated_config = WireGuardProtoConfig::try_from(&path).unwrap();
         assert_eq!(
             updated_config.peers.as_ref().map(|v| v.len()).unwrap_or(0),
             1
         );
 
-        config.add_peer(WireGuardPeer {
-            public_key: WireGuardKey::from_public("456".to_string()),
+        config.add_peer(WireGuardProtoPeer {
+            public_key: WireGuardProtoKey::from_public("456".to_string()),
             allowed_ips: "".to_string(),
             endpoint: None,
             persistent_keepalive: None,
         });
 
-        config.add_peer(WireGuardPeer {
-            public_key: WireGuardKey::from_public("789".to_string()),
+        config.add_peer(WireGuardProtoPeer {
+            public_key: WireGuardProtoKey::from_public("789".to_string()),
             allowed_ips: "".to_string(),
             endpoint: None,
             persistent_keepalive: None,
@@ -580,7 +540,7 @@ SaveConfig = true
 
         let _ = config.save(name);
 
-        let updated_config = WireGuardConfig::try_from(&path).unwrap();
+        let updated_config = WireGuardProtoConfig::try_from(&path).unwrap();
         assert_eq!(
             updated_config.peers.as_ref().map(|v| v.len()).unwrap_or(0),
             3

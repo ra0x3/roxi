@@ -1,5 +1,5 @@
 use crate::{error::ClientError, ClientResult};
-use roxi_lib::types::{config::WireGuard, InterfaceKind, Ports, SharedKey};
+use roxi_lib::types::{config::WireGuardConf, InterfaceKind, Ports, SharedKey};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -76,13 +76,10 @@ pub struct Server {
     ip: IpAddr,
     ports: Ports,
     request_timeout: u64,
+    response_timeout: u64,
 }
 
 impl Server {
-    pub fn request_timeout(&self) -> u64 {
-        self.request_timeout
-    }
-
     pub fn addr(&self, k: InterfaceKind) -> String {
         match k {
             InterfaceKind::Tcp => format!("{}:{}", self.interface, self.ports.tcp),
@@ -105,7 +102,7 @@ pub struct Network {
     server: Server,
     gateway: Gateway,
     stun: Stun,
-    wireguard: WireGuard,
+    wireguard: WireGuardConf,
     nat: Nat,
 }
 
@@ -114,11 +111,8 @@ impl Network {
         self.stun = stun;
     }
 
-    pub fn wgquick_config_path(&self) -> Option<&PathBuf> {
-        match &self.wireguard.wgquick {
-            Some(wgquick) => Some(&wgquick.config),
-            None => None,
-        }
+    pub fn wireguard_filepath(&self) -> &PathBuf {
+        &self.wireguard.config
     }
 }
 
@@ -131,11 +125,15 @@ pub struct Config {
 
 impl Config {
     pub fn request_timeout(&self) -> u64 {
-        self.network.server.request_timeout()
+        self.network.server.request_timeout
     }
 
-    pub fn wgquick_config_path(&self) -> Option<&PathBuf> {
-        self.network.wgquick_config_path()
+    pub fn response_timeout(&self) -> u64 {
+        self.network.server.response_timeout
+    }
+
+    pub fn wireguard_filepath(&self) -> &PathBuf {
+        self.network.wireguard_filepath()
     }
 
     pub fn path(&self) -> &PathBuf {
@@ -185,7 +183,7 @@ impl Config {
         self.network.nat.attempts
     }
 
-    pub fn wireguard(&self) -> WireGuard {
+    pub fn wireguard(&self) -> WireGuardConf {
         self.network.wireguard.clone()
     }
 

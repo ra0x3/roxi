@@ -22,8 +22,8 @@ pub struct Server {
     client_limit: Arc<Semaphore>,
     config: Config,
     client_streams: Arc<RwLock<HashMap<ClientId, Arc<Mutex<TcpStream>>>>>,
-    client_sessions: SessionManager,
-    client_stun: Arc<RwLock<HashMap<ClientId, StunInfo>>>,
+    sessions: SessionManager,
+    stun: Arc<RwLock<HashMap<ClientId, StunInfo>>>,
 }
 
 impl Server {
@@ -38,8 +38,8 @@ impl Server {
             client_limit: Arc::new(Semaphore::new(config.max_clients().into())),
             config: config.clone(),
             client_streams: Arc::new(RwLock::new(HashMap::new())),
-            client_sessions: SessionManager::new(config),
-            client_stun: Arc::new(RwLock::new(HashMap::new())),
+            sessions: SessionManager::new(config),
+            stun: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 
@@ -53,7 +53,7 @@ impl Server {
             let mut buff = vec![0u8; 1024];
             let n = stream.lock().await.read(&mut buff).await?;
             if n == 0 {
-                tracing::warn!("Client connection closed");
+                tracing::warn!("{client_id:?} connection closed");
                 break;
             }
 
@@ -79,8 +79,7 @@ impl Server {
                 }
                 MessageKind::AuthenticationRequest => {
                     let config = ClientConfig::try_from(msg.data())?;
-                    if let Err(_e) =
-                        self.client_sessions.authenticate(&client_id, &config).await
+                    if let Err(_e) = self.sessions.authenticate(&client_id, &config).await
                     {
                         self.send(
                             &client_id,
@@ -133,10 +132,8 @@ impl Server {
                     )
                     .await?;
 
-                    let peer_addr = self
-                        .client_sessions
-                        .get_peer_for_gateway(&client_id)
-                        .await?;
+                    let peer_addr =
+                        self.sessions.get_peer_for_gateway(&client_id).await?;
 
                     let peer_client = ClientId::from(peer_addr.clone());
                     tracing::info!(
@@ -230,7 +227,7 @@ impl Server {
         kind: MessageKind,
         stream: Arc<Mutex<TcpStream>>,
     ) -> ServerResult<()> {
-        if !self.client_sessions.exists(client_id).await {
+        if !self.sessions.exists(client_id).await {
             tracing::error!("Unauthenticated client: {client_id:?}");
             self.send(
                 client_id,
@@ -261,7 +258,7 @@ impl Server {
         Ok(())
     }
 
-    pub async fn handle_stun(&self, buff: &[u8], addr: SocketAddr) -> ServerResult<()> {
+    pub async fn handle_udp(&self, buff: &[u8], addr: SocketAddr) -> ServerResult<()> {
         let msg_type = u16::from_be_bytes([buff[0], buff[1]]);
         if msg_type != STUN_BINDING_REQUEST {
             tracing::warn!("Unrecognized stun request");
@@ -281,7 +278,7 @@ impl Server {
         let info = StunInfo::new(StunAddressKind::Public, ip, port);
 
         tracing::info!("Adding stun info for {client_id:?}: {info:?}");
-        self.client_stun.write().await.insert(client_id, info);
+        self.stun.write().await.insert(client_id, info);
 
         Ok(())
     }
@@ -290,8 +287,8 @@ impl Server {
     ///
     /// This method listens on the UDP socket specified in the server's configuration.
     /// For each incoming packet, it spawns a new task to process the packet using
-    /// `handle_stun`. The server instance is shared across tasks using `Arc<Self>`.
-    pub async fn run_stun(self: Arc<Self>) -> ServerResult<()> {
+    /// `handle_udp`. The server instance is shared across tasks using `Arc<Self>`.
+    pub async fn run_udp(self: Arc<Self>) -> ServerResult<()> {
         tracing::info!(
             "UDP server listening at {}",
             self.config.addr(InterfaceKind::Udp)
@@ -304,7 +301,7 @@ impl Server {
                 let buff = buff[..len].to_vec();
                 tokio::spawn(async move {
                     tracing::info!("New UDP packets");
-                    let _ = server.handle_stun(&buff, addr).await;
+                    let _ = server.handle_udp(&buff, addr).await;
                 });
             }
         }
@@ -317,7 +314,7 @@ impl Server {
     /// using `handle_conn`. The server instance is shared across tasks using `Arc<Self>`.
     ///
     /// Additionally, this method spawns a background task to monitor client sessions
-    /// using `client_sessions.monitor`.
+    /// using `sessions.monitor`.
     pub async fn run(self: Arc<Self>) -> ServerResult<()> {
         tracing::info!(
             "Roxi server listening at {}",
@@ -326,13 +323,13 @@ impl Server {
 
         let server = Arc::clone(&self);
         tokio::spawn(async move {
-            server.client_sessions.monitor().await;
+            server.sessions.monitor().await;
         });
 
         loop {
             let (stream, _) = self.tcp.accept().await?;
             tracing::info!("New connection from {:?}", stream.peer_addr());
-            let permit = self.client_limit.clone().acquire_owned().await?;
+            let lock = self.client_limit.clone().acquire_owned().await?;
             let server = Arc::clone(&self);
 
             tokio::spawn(async move {
@@ -340,7 +337,7 @@ impl Server {
                     tracing::error!("Error handling client: {e}");
                 }
 
-                drop(permit);
+                drop(lock);
             });
         }
     }
@@ -369,7 +366,8 @@ impl Server {
 
                 // FIXME: Trying to acquire a lock on the stream here causes lock contention due to
                 // `Server::handle_conn` accessing the lock infinitum, which (for now) allows clients
-                // to send multiple messages on a single stream. Might require a bit of rework later. <( '.' )>
+                // to send multiple messages on a single stream. Might require a bit of rework later.
+                // <( '.' )>
                 let mut guard = stream.lock().await;
 
                 if let Err(e) = timeout(
@@ -397,8 +395,8 @@ impl Server {
             clients.clear();
         }
 
-        self.client_sessions.clear().await?;
-        self.client_stun.write().await.clear();
+        self.sessions.clear().await?;
+        self.stun.write().await.clear();
 
         drop(self.client_limit.clone());
 

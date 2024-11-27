@@ -1,5 +1,5 @@
 use crate::{
-    wireguard::{WireGuardKey, WireGuardKeyPair},
+    wireguard::{WireGuardProtoKey, WireGuardProtoKeyPair},
     ProtoError, ProtoResult,
 };
 use std::{
@@ -39,7 +39,7 @@ pub fn reload_wireguard(interface: &str) -> io::Result<()> {
     Ok(())
 }
 
-pub fn wireguard_keypair() -> ProtoResult<WireGuardKeyPair> {
+pub fn wireguard_keypair() -> ProtoResult<WireGuardProtoKeyPair> {
     let privkey = Command::new("wg").arg("genkey").output()?;
     let privkey = String::from_utf8(privkey.stdout)
         .unwrap()
@@ -57,13 +57,15 @@ pub fn wireguard_keypair() -> ProtoResult<WireGuardKeyPair> {
     let pubkey = Command::new("wg").arg("pubkey").output()?;
     let pubkey = String::from_utf8(pubkey.stdout).unwrap().trim().to_string();
 
-    let pubkey = WireGuardKey::from_public(pubkey);
-    let privkey = WireGuardKey::from_private(privkey);
+    let pubkey = WireGuardProtoKey::from_public(pubkey);
+    let privkey = WireGuardProtoKey::from_private(privkey);
 
-    Ok(WireGuardKeyPair { pubkey, privkey })
+    Ok(WireGuardProtoKeyPair { pubkey, privkey })
 }
 
-pub fn derive_wireguard_pubkey(privkey: &mut WireGuardKey) -> ProtoResult<WireGuardKey> {
+pub fn derive_wireguard_pubkey(
+    privkey: &mut WireGuardProtoKey,
+) -> ProtoResult<WireGuardProtoKey> {
     let mut output = Command::new("wg")
         .arg("pubkey")
         .stdin(Stdio::piped())
@@ -88,15 +90,15 @@ pub fn derive_wireguard_pubkey(privkey: &mut WireGuardKey) -> ProtoResult<WireGu
 
     let pubkey = String::from_utf8(output.stdout)?.trim().to_string();
 
-    Ok(WireGuardKey::from_public(pubkey))
+    Ok(WireGuardProtoKey::from_public(pubkey))
 }
 
-pub fn cat_wireguard_pubkey() -> ProtoResult<WireGuardKey> {
+pub fn cat_wireguard_pubkey() -> ProtoResult<WireGuardProtoKey> {
     let output = Command::new("cat").arg(PUBLICKEY_PATH).output()?;
 
     if output.status.success() {
         let k = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        return Ok(WireGuardKey::from_public(k));
+        return Ok(WireGuardProtoKey::from_public(k));
     }
 
     Err(ProtoError::Io(io::Error::new(
@@ -105,14 +107,14 @@ pub fn cat_wireguard_pubkey() -> ProtoResult<WireGuardKey> {
     )))
 }
 
-pub fn cat_wireguard_key<P: AsRef<Path>>(p: P) -> ProtoResult<WireGuardKey> {
+pub fn cat_wireguard_key<P: AsRef<Path>>(p: P) -> ProtoResult<WireGuardProtoKey> {
     let p = p.as_ref();
     let mut f = File::open(p)?;
     let mut content = String::new();
     f.read_to_string(&mut content)?;
     let key = content.trim().to_string();
     if p.ends_with("publickey") {
-        return Ok(WireGuardKey::from_public(key));
+        return Ok(WireGuardProtoKey::from_public(key));
     }
-    Ok(WireGuardKey::from_private(key))
+    Ok(WireGuardProtoKey::from_private(key))
 }
